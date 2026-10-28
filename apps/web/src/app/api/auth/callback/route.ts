@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       expiresAt: Date.now() + tokenData.expires_in * 1000,
     });
 
-    const response = NextResponse.redirect(new URL('/', request.url));
+    const response = NextResponse.redirect(new URL('/dashboard', request.url));
     const secure = process.env.NODE_ENV === 'production';
     response.cookies.set(SESSION_COOKIE, sessionValue, {
       httpOnly: true,

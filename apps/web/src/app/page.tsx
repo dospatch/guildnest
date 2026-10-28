@@ -1,10 +1,10 @@
 const modules = [
-  { icon: '⌘', name: 'Server overview', description: 'A home for your community settings.', status: 'Foundation', tone: 'ready' },
-  { icon: '◷', name: 'Tickets & support', description: 'Organize member questions and staff replies.', status: 'Planned', tone: 'planned' },
-  { icon: '◇', name: 'Applications', description: 'Collect and review staff or department applications.', status: 'Planned', tone: 'planned' },
-  { icon: '⚑', name: 'Moderation', description: 'Build consistent, accountable moderation tools.', status: 'Planned', tone: 'planned' },
-  { icon: '▤', name: 'Server setup', description: 'A guided checklist for roles, channels, and permissions.', status: 'In progress', tone: 'progress' },
-  { icon: '↗', name: 'Activity & logs', description: 'Make important community actions easier to track.', status: 'Planned', tone: 'planned' },
+  { id: 'server-overview', icon: '⌘', name: 'Server overview', description: 'A home for your community settings.', status: 'Foundation', tone: 'ready' },
+  { id: 'tickets-support', icon: '◷', name: 'Tickets & support', description: 'Organize member questions and staff replies.', status: 'Planned', tone: 'planned' },
+  { id: 'applications', icon: '◇', name: 'Applications', description: 'Collect and review staff or department applications.', status: 'Planned', tone: 'planned' },
+  { id: 'moderation', icon: '⚑', name: 'Moderation', description: 'Build consistent, accountable moderation tools.', status: 'Planned', tone: 'planned' },
+  { id: 'server-setup', icon: '▤', name: 'Server setup', description: 'A guided checklist for roles, channels, and permissions.', status: 'In progress', tone: 'progress' },
+  { id: 'activity-logs', icon: '↗', name: 'Activity & logs', description: 'Make important community actions easier to track.', status: 'Planned', tone: 'planned' },
 ];
 
 const commands = [
@@ -27,6 +27,16 @@ export default function Home() {
           <a className="nav-item" href="#modules"><span>◇</span> Modules <span className="nav-count">6</span></a>
           <a className="nav-item" href="#commands"><span>⌘</span> Bot commands</a>
           <a className="nav-item" href="#roadmap"><span>↗</span> Roadmap</a>
+        </nav>
+        <div className="sidebar-module-heading">MODULES</div>
+        <nav className="sidebar-module-list" aria-label="GuildNest modules">
+          {modules.map((module) => (
+            <a className="sidebar-module-item" href={`#module-${module.id}`} key={module.id}>
+              <span className="sidebar-module-icon">{module.icon}</span>
+              <span>{module.name}</span>
+              <span className={`sidebar-module-status ${module.tone}`} />
+            </a>
+          ))}
         </nav>
         <div className="sidebar-bottom">
           <div className="nestmate-card">
@@ -61,7 +71,7 @@ export default function Home() {
           <div className="section-heading" id="modules"><div><div className="section-kicker">THE TOOLKIT</div><h2>Everything has its place.</h2></div><span className="section-meta">6 MODULES IN THE PLAN</span></div>
           <div className="module-grid">
             {modules.map((module) => (
-              <article className="module-card" key={module.name}>
+              <article className="module-card" id={`module-${module.id}`} key={module.name}>
                 <div className="module-top"><span className="module-icon">{module.icon}</span><span className={`pill ${module.tone}`}>{module.status}</span></div>
                 <h3>{module.name}</h3><p>{module.description}</p><div className="card-foot"><span>GUILDNEST MODULE</span><span className="arrow">↗</span></div>
               </article>

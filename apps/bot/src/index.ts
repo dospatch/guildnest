@@ -24,6 +24,9 @@ const ticketCategoryId = process.env.TICKET_CATEGORY_ID;
 const ticketStaffRoleId = process.env.TICKET_STAFF_ROLE_ID;
 const ticketLogChannelId = process.env.TICKET_LOG_CHANNEL_ID;
 
+const botMemberHasPermission = (guild: import('discord.js').Guild, permission: bigint) =>
+  Boolean(guild.members.me?.permissions.has(permission));
+
 const ticketPanelRow = () => new ActionRowBuilder<ButtonBuilder>().addComponents(
   new ButtonBuilder()
     .setCustomId('guildnest:ticket:create')
@@ -237,6 +240,24 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (interaction.customId === 'guildnest:ticket:create') {
+      const botPermissions = [
+        [PermissionFlagsBits.ManageChannels, 'Manage Channels'],
+        [PermissionFlagsBits.ViewChannel, 'View Channels'],
+        [PermissionFlagsBits.SendMessages, 'Send Messages'],
+        [PermissionFlagsBits.ReadMessageHistory, 'Read Message History'],
+        [PermissionFlagsBits.EmbedLinks, 'Embed Links'],
+      ] as const;
+      const missingBotPermissions = botPermissions
+        .filter(([permission]) => !botMemberHasPermission(guild, permission))
+        .map(([, name]) => name);
+      if (missingBotPermissions.length) {
+        await interaction.reply({
+          content: `I can't create a private ticket yet. My effective server permissions are missing: **${missingBotPermissions.join(', ')}**. Please check my role and any channel/category permission overrides.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
       const existing = guild.channels.cache.find((channel) =>
         channel.type === ChannelType.GuildText &&
         channel.topic === `guildnest-ticket:${interaction.user.id}:open`,

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import AuthFeedback from './components/auth-feedback';
 
 export default function Home() {
   return (
@@ -20,6 +21,7 @@ export default function Home() {
           <div className="landing-eyebrow"><span /> DISCORD COMMUNITY TOOLS</div>
           <h1>Your community.<br /><em>In good hands.</em></h1>
           <p className="landing-lede">Make room for better communities. Bring your Discord server tools into one calm, organized workspace built to help you manage your community with confidence.</p>
+          <AuthFeedback />
           <div className="landing-actions">
             <a className="discord-login landing-primary" href="/api/auth/discord"><span aria-hidden="true">◈</span> Continue with Discord <span className="landing-arrow" aria-hidden="true">↗</span></a>
             <a className="landing-secondary" href="#features">Explore features <span aria-hidden="true">↓</span></a>

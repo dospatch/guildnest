@@ -7,7 +7,7 @@ The first GuildNest dashboard interface is built with Next.js and TypeScript. It
 - Dashboard overview and module roadmap
 - NestMate starter command reference
 - Responsive layout for mobile and desktop
-- No Discord login, live guild data, or module actions yet; those are planned integration steps
+- Discord OAuth login and managed-server listing are implemented; configure the OAuth environment variables in the root README. The dashboard refreshes session/server summary every 30 seconds while open. Live guild metrics and module actions are still planned.
 
 ## Run locally
 

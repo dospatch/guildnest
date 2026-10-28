@@ -225,7 +225,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await channel.setTopic(`guildnest-ticket:${ownerId}:closed`);
       await channel.setName(`closed-${channel.name.replace(/^ticket-/, '').replace(/^closed-/, '').slice(0, 85)}`);
       await channel.permissionOverwrites.edit(ownerId, { SendMessages: false, ViewChannel: true });
-      await channel.send(`🔒 Ticket closed by <@${interaction.user.id}>. Staff can reopen it by restoring the owner's Send Messages permission and changing the channel topic to `guildnest-ticket:${ownerId}:open`.`);
+      await channel.send(`🔒 Ticket closed by <@${interaction.user.id}>. Staff can reopen it by restoring the owner's Send Messages permission and changing the channel topic back to guildnest-ticket:${ownerId}:open.`);
 
       if (ticketLogChannelId) {
         const logChannel = guild.channels.cache.get(ticketLogChannelId);

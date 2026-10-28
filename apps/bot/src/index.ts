@@ -32,18 +32,18 @@ const ticketPanelRow = () => new ActionRowBuilder<ButtonBuilder>().addComponents
     .setStyle(ButtonStyle.Primary),
 );
 
-const ticketControls = (claimed = false) => new ActionRowBuilder<ButtonBuilder>().addComponents(
+const ticketControls = (claimed = false, closed = false) => new ActionRowBuilder<ButtonBuilder>().addComponents(
   new ButtonBuilder()
     .setCustomId('guildnest:ticket:claim')
     .setLabel(claimed ? 'Ticket claimed' : 'Claim ticket')
     .setEmoji('🙋')
     .setStyle(ButtonStyle.Secondary)
-    .setDisabled(claimed),
+    .setDisabled(claimed || closed),
   new ButtonBuilder()
-    .setCustomId('guildnest:ticket:close')
-    .setLabel('Close ticket')
-    .setEmoji('🔒')
-    .setStyle(ButtonStyle.Danger),
+    .setCustomId(closed ? 'guildnest:ticket:reopen' : 'guildnest:ticket:close')
+    .setLabel(closed ? 'Reopen ticket' : 'Close ticket')
+    .setEmoji(closed ? '🔓' : '🔒')
+    .setStyle(closed ? ButtonStyle.Success : ButtonStyle.Danger),
 );
 
 // Render free Web Services require an HTTP port. This health endpoint checks
@@ -317,16 +317,41 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.reply({ content: 'Only the ticket owner or support staff can close this ticket.', flags: MessageFlags.Ephemeral });
         return;
       }
-      if (ticketState === 'closed') {
-        await interaction.reply({ content: 'This ticket is already closed.', flags: MessageFlags.Ephemeral });
+      if (interaction.customId === 'guildnest:ticket:reopen') {
+        if (!isStaff) {
+          await interaction.reply({ content: 'Only the support team can reopen tickets.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        if (ticketState !== 'closed') {
+          await interaction.reply({ content: 'This ticket is already open.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        await interaction.deferUpdate();
+        await channel.setTopic(`guildnest-ticket:${ownerId}:open`);
+        await channel.setName(`ticket-${channel.name.replace(/^closed-/, '').replace(/^ticket-/, '').slice(0, 85)}`);
+        await channel.permissionOverwrites.edit(ownerId, { SendMessages: true, ViewChannel: true, ReadMessageHistory: true });
+        await channel.send(`🔓 Ticket reopened by <@${interaction.user.id}>. The owner can reply here again.`);
+        await interaction.editReply({ components: [ticketControls(false, false)] });
+        if (ticketLogChannelId) {
+          const logChannel = guild.channels.cache.get(ticketLogChannelId);
+          if (logChannel?.isTextBased() && 'send' in logChannel) {
+            await logChannel.send(`🔓 Ticket ${channel.name} reopened by ${interaction.user.tag}. Channel: <#${channel.id}>; owner: <@${ownerId}>.`).catch(() => undefined);
+          }
+        }
         return;
       }
 
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      if (ticketState === 'closed') {
+        await interaction.reply({ content: 'This ticket is already closed. A support team member can reopen it.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      await interaction.deferUpdate();
       await channel.setTopic(`guildnest-ticket:${ownerId}:closed`);
       await channel.setName(`closed-${channel.name.replace(/^ticket-/, '').replace(/^closed-/, '').slice(0, 85)}`);
       await channel.permissionOverwrites.edit(ownerId, { SendMessages: false, ViewChannel: true });
-      await channel.send(`🔒 Ticket closed by <@${interaction.user.id}>. Staff can reopen it by restoring the owner's Send Messages permission and changing the channel topic back to guildnest-ticket:${ownerId}:open.`);
+      await channel.send(`🔒 Ticket closed by <@${interaction.user.id}>. This ticket is kept for staff reference; support staff can reopen it using the button below.`);
+      await interaction.editReply({ components: [ticketControls(false, true)] });
 
       if (ticketLogChannelId) {
         const logChannel = guild.channels.cache.get(ticketLogChannelId);
@@ -334,7 +359,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
           await logChannel.send(`🔒 Ticket ${channel.name} closed by ${interaction.user.tag}. Channel: <#${channel.id}>; owner: <@${ownerId}>.`).catch(() => undefined);
         }
       }
-      await interaction.editReply({ content: 'Ticket closed. The channel was kept for staff reference.' });
     }
   } catch (error) {
     console.error('Interaction handler failed:', error instanceof Error ? (error.stack ?? error.message) : error);

@@ -1,4 +1,5 @@
 import DiscordLogin from './components/discord-login';
+import DashboardLiveStatus from './components/dashboard-live-status';
 
 const modules = [
   { id: 'server-overview', icon: '⌘', name: 'Server overview', description: 'A home for your community settings.', status: 'Foundation', tone: 'ready' },
@@ -33,7 +34,7 @@ export default function Home() {
         <div className="sidebar-module-heading">MODULES</div>
         <nav className="sidebar-module-list" aria-label="GuildNest modules">
           {modules.map((module) => (
-            <a className="sidebar-module-item" href={`/modules/${module.id}`} key={module.id}>
+            <a className="sidebar-module-item" href={`#module-${module.id}`} key={module.id}>
               <span className="sidebar-module-icon">{module.icon}</span>
               <span>{module.name}</span>
               <span className={`sidebar-module-status ${module.tone}`} />
@@ -69,11 +70,12 @@ export default function Home() {
           </div>
 
           <div className="notice"><span className="notice-icon">i</span><div><strong>Early access preview</strong><p>Sign in with Discord to view the servers where you have management permissions. Module actions and live server controls are being added in stages.</p></div><a href="https://github.com/dospatch/guildnest" target="_blank" rel="noreferrer">Follow development ↗</a></div>
+          <DashboardLiveStatus />
 
           <div className="section-heading" id="modules"><div><div className="section-kicker">THE TOOLKIT</div><h2>Everything has its place.</h2></div><span className="section-meta">6 MODULES IN THE PLAN</span></div>
           <div className="module-grid">
             {modules.map((module) => (
-              <a className="module-card" id={`module-${module.id}`} href={`/modules/${module.id}`} key={module.name}>
+              <a className="module-card" id={`module-${module.id}`} href={`#module-${module.id}`} key={module.name}>
                 <div className="module-top"><span className="module-icon">{module.icon}</span><span className={`pill ${module.tone}`}>{module.status}</span></div>
                 <h3>{module.name}</h3><p>{module.description}</p><div className="card-foot"><span>GUILDNEST MODULE</span><span className="arrow">↗</span></div>
               </a>

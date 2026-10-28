@@ -32,7 +32,7 @@ export default function DashboardPage() {
         if (data.authenticated) {
           setAuthorized(true);
         } else {
-          window.location.replace('/');
+          window.location.replace('/?discord_error=session_missing');
         }
       })
       .catch(() => {

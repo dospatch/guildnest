@@ -1,6 +1,18 @@
 import 'dotenv/config';
 import { createServer } from 'node:http';
-import { Client, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelType,
+  Client,
+  EmbedBuilder,
+  Events,
+  GatewayIntentBits,
+  MessageFlags,
+  PermissionFlagsBits,
+  type OverwriteResolvable,
+} from 'discord.js';
 
 const token = process.env.DISCORD_BOT_TOKEN;
 if (!token) {
@@ -8,13 +20,37 @@ if (!token) {
 }
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const ticketCategoryId = process.env.TICKET_CATEGORY_ID;
+const ticketStaffRoleId = process.env.TICKET_STAFF_ROLE_ID;
+const ticketLogChannelId = process.env.TICKET_LOG_CHANNEL_ID;
 
-// Render free Web Services require an HTTP port. This health endpoint also lets us
-// check whether the Discord Gateway connection is ready without exposing secrets.
+const ticketPanelRow = () => new ActionRowBuilder<ButtonBuilder>().addComponents(
+  new ButtonBuilder()
+    .setCustomId('guildnest:ticket:create')
+    .setLabel('Open a support ticket')
+    .setEmoji('🎫')
+    .setStyle(ButtonStyle.Primary),
+);
+
+const ticketControls = (claimed = false) => new ActionRowBuilder<ButtonBuilder>().addComponents(
+  new ButtonBuilder()
+    .setCustomId('guildnest:ticket:claim')
+    .setLabel(claimed ? 'Ticket claimed' : 'Claim ticket')
+    .setEmoji('🙋')
+    .setStyle(ButtonStyle.Secondary)
+    .setDisabled(claimed),
+  new ButtonBuilder()
+    .setCustomId('guildnest:ticket:close')
+    .setLabel('Close ticket')
+    .setEmoji('🔒')
+    .setStyle(ButtonStyle.Danger),
+);
+
+// Render free Web Services require an HTTP port. This health endpoint checks
+// whether the Discord Gateway connection is ready without exposing secrets.
 const port = Number(process.env.PORT || 3000);
 const server = createServer((request, response) => {
-  // Normalize the URL so query strings and trailing slashes don't break health checks.
-  const pathname = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`).pathname.replace(/\/+$/, '') || '/';
+  const pathname = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`).pathname.replace(/\\/+$/, '') || '/';
   if (pathname === '/health' || pathname === '/api/health' || pathname === '/') {
     const online = client.isReady();
     response.writeHead(200, {
@@ -46,36 +82,164 @@ client.on(Events.Error, (error) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-
   try {
-    if (interaction.commandName === 'help') {
-      await interaction.reply({
-        content: '**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — view the server setup checklist\n\nGuildNest is in early development. Features are being added in stages.',
-        flags: MessageFlags.Ephemeral,
-      });
+    if (interaction.isChatInputCommand()) {
+      if (interaction.commandName === 'help') {
+        await interaction.reply({
+          content: '**NestMate · GuildNest**\\n\\n`/help` — show this help\\n`/module` — view module status\\n`/setup` — view the server setup checklist\\n`/ticket-panel` — post a support panel (server managers only)\\n\\nGuildNest is being built in stages.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (interaction.commandName === 'module') {
+        await interaction.reply({
+          content: '**GuildNest Modules**\\n\\n🟢 **Core commands** — online\\n🟢 **Support tickets** — panel, private channels, claim, and close are available\\n🟡 **Server setup** — checklist only\\n⚪ **Applications, moderation, and dashboard controls** — planned',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (interaction.commandName === 'setup') {
+        await interaction.reply({
+          content: '**GuildNest setup checklist**\\n\\n1. Create information, community, and support channels.\\n2. Decide which staff roles may manage the server.\\n3. Give NestMate only the permissions it needs.\\n4. Use `/ticket-panel` in the channel where members should open tickets.\\n\\nOptional Render settings can restrict tickets to a category, add a staff role, and send logs to a channel.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (interaction.commandName === 'ticket-panel') {
+        if (!interaction.guild || !interaction.channel || !interaction.channel.isTextBased() || !('send' in interaction.channel)) {
+          await interaction.reply({ content: 'Use this command in a server text channel.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        await interaction.channel.send({
+          embeds: [new EmbedBuilder()
+            .setColor(0x5865F2)
+            .setTitle('GuildNest Support')
+            .setDescription('Need help from the team? Press the button below to open a private support ticket. Please create one ticket per issue.')
+            .setFooter({ text: 'Powered by NestMate · GuildNest' })],
+          components: [ticketPanelRow()],
+        });
+        await interaction.reply({ content: 'Support ticket panel posted in this channel.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+    }
+
+    if (!interaction.isButton()) return;
+    if (!interaction.customId.startsWith('guildnest:ticket:')) return;
+
+    const guild = interaction.guild;
+    if (!guild) {
+      await interaction.reply({ content: 'Tickets can only be used inside a server.', flags: MessageFlags.Ephemeral });
       return;
     }
 
-    if (interaction.commandName === 'module') {
-      await interaction.reply({
-        content: '**GuildNest Modules**\n\n🟢 **Core commands** — ready once commands are registered\n🟡 **Server setup** — checklist only; no channels or roles are changed automatically yet\n⚪ **Tickets, applications, moderation, and dashboard** — planned',
-        flags: MessageFlags.Ephemeral,
+    if (interaction.customId === 'guildnest:ticket:create') {
+      const existing = guild.channels.cache.find((channel) =>
+        channel.type === ChannelType.GuildText &&
+        channel.topic === `guildnest-ticket:${interaction.user.id}:open`,
+      );
+      if (existing) {
+        await interaction.reply({ content: `You already have an open ticket: <#${existing.id}>`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      const botMember = guild.members.me;
+      if (!botMember) {
+        await interaction.reply({ content: 'NestMate could not verify its server permissions. Please try again shortly.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      const overwrites: OverwriteResolvable[] = [
+        { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+        { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.EmbedLinks] },
+        { id: botMember.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
+      ];
+      if (ticketStaffRoleId && guild.roles.cache.has(ticketStaffRoleId)) {
+        overwrites.push({
+          id: ticketStaffRoleId,
+          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+        });
+      }
+
+      const ticketChannel = await guild.channels.create({
+        name: `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 80)}`,
+        type: ChannelType.GuildText,
+        topic: `guildnest-ticket:${interaction.user.id}:open`,
+        ...(ticketCategoryId ? { parent: ticketCategoryId } : {}),
+        permissionOverwrites: overwrites,
+        reason: `Support ticket opened by ${interaction.user.tag}`,
       });
+
+      await ticketChannel.send({
+        content: `Welcome <@${interaction.user.id}>! Please describe what you need help with. Staff will respond here.${ticketStaffRoleId && guild.roles.cache.has(ticketStaffRoleId) ? ` <@&${ticketStaffRoleId}>` : ''}`,
+        embeds: [new EmbedBuilder()
+          .setColor(0x5865F2)
+          .setTitle('Support Ticket')
+          .setDescription('Use **Claim ticket** when a staff member starts helping. Use **Close ticket** when the issue is resolved.')
+          .addFields({ name: 'Opened by', value: `<@${interaction.user.id}>`, inline: true })
+          .setTimestamp()],
+        components: [ticketControls()],
+      });
+      await interaction.reply({ content: `Your private ticket is ready: <#${ticketChannel.id}>`, flags: MessageFlags.Ephemeral });
       return;
     }
 
-    if (interaction.commandName === 'setup') {
-      await interaction.reply({
-        content: '**GuildNest setup checklist**\n\n1. Create information, community, and support channels.\n2. Decide which staff roles may manage the server.\n3. Keep NestMate’s permissions limited to enabled features.\n4. Dashboard linking and automated setup are not implemented yet.\n\nThis command provides guidance only and will not change your server.',
-        flags: MessageFlags.Ephemeral,
+    const channel = interaction.channel;
+    if (!channel || channel.type !== ChannelType.GuildText || !channel.topic?.startsWith('guildnest-ticket:')) {
+      await interaction.reply({ content: 'This button only works inside a GuildNest ticket channel.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const [, ownerId, ticketState] = channel.topic.split(':');
+    const isStaff = interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels) ||
+      interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild) ||
+      Boolean(ticketStaffRoleId && interaction.member && 'roles' in interaction.member &&
+        interaction.member.roles && 'cache' in interaction.member.roles &&
+        interaction.member.roles.cache.has(ticketStaffRoleId));
+
+    if (interaction.customId === 'guildnest:ticket:claim') {
+      if (!isStaff) {
+        await interaction.reply({ content: 'Only the support team can claim tickets.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await interaction.update({
+        components: [ticketControls(true)],
       });
+      await channel.send(`🙋 <@${interaction.user.id}> has claimed this ticket.`);
+      return;
+    }
+
+    if (interaction.customId === 'guildnest:ticket:close') {
+      if (interaction.user.id !== ownerId && !isStaff) {
+        await interaction.reply({ content: 'Only the ticket owner or support staff can close this ticket.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      if (ticketState === 'closed') {
+        await interaction.reply({ content: 'This ticket is already closed.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      await channel.setTopic(`guildnest-ticket:${ownerId}:closed`);
+      await channel.setName(`closed-${channel.name.replace(/^ticket-/, '').replace(/^closed-/, '').slice(0, 85)}`);
+      await channel.permissionOverwrites.edit(ownerId, { SendMessages: false, ViewChannel: true });
+      await channel.send(`🔒 Ticket closed by <@${interaction.user.id}>. Staff can reopen it by restoring the owner's Send Messages permission and changing the channel topic to `guildnest-ticket:${ownerId}:open`.`);
+
+      if (ticketLogChannelId) {
+        const logChannel = guild.channels.cache.get(ticketLogChannelId);
+        if (logChannel?.isTextBased() && 'send' in logChannel) {
+          await logChannel.send(`🔒 Ticket ${channel.name} closed by ${interaction.user.tag}. Channel: <#${channel.id}>; owner: <@${ownerId}>.`).catch(() => undefined);
+        }
+      }
+      await interaction.editReply({ content: 'Ticket closed. The channel was kept for staff reference.' });
     }
   } catch (error) {
-    console.error('Command handler failed:', error instanceof Error ? error.message : 'Unknown error');
-    if (!interaction.replied && !interaction.deferred) {
+    console.error('Interaction handler failed:', error instanceof Error ? error.message : 'Unknown error');
+    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
       await interaction.reply({
-        content: 'NestMate ran into a problem handling that command. Please try again later.',
+        content: 'NestMate ran into a problem. Check its server permissions and try again.',
         flags: MessageFlags.Ephemeral,
       }).catch(() => undefined);
     }

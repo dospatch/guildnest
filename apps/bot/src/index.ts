@@ -137,7 +137,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'help') {
         await interaction.reply({
-          content: '**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — build the server layout and support panel\n`/ticket-panel` — post a support panel (server managers only)\n\nGuildNest is being built in stages.',
+          content: '**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — build the server layout and support panel\n`/ticket-panel` — post a support panel in a chosen category\n`/community-panel` — post Bug Reports, Suggestions, and Feedback buttons\n\nGuildNest is being built in stages.',
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -145,7 +145,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (interaction.commandName === 'module') {
         await interaction.reply({
-          content: '**GuildNest Modules**\n\n🟢 **Core commands** — online\n🟢 **Support tickets** — panel, private channels, claim, and close are available\n🟢 **Server setup** — creates starter categories, channels, roles, and support panel\n🟡 **Applications, moderation, and dashboard controls** — still being built',
+          content: '**GuildNest Modules**\n\n🟢 **Core commands** — online\n🟢 **Support tickets** — panel, private channels, claim, close, and reopen\n🟢 **Community Center** — bug reports, suggestions, feedback forms, and suggestion voting\n🟢 **Server setup** — creates starter categories, channels, roles, and support panel\n🟡 **Applications, moderation, and dashboard controls** — still being built',
           flags: MessageFlags.Ephemeral,
         });
         return;

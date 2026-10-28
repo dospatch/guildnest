@@ -12,6 +12,10 @@ export const commands = [
     .setDescription('Build the standard GuildNest server layout and support ticket panel.')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder()
+    .setName('sync')
+    .setDescription('Check for missing GuildNest channels and roles, then offer safe restoration.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
     .setName('community-panel')
     .setDescription('Post the GuildNest Bug Reports, Suggestions, and Feedback panel.')
     .addAttachmentOption((option) => option.setName('image').setDescription('Optional screenshot or image to display on the panel').setRequired(false))

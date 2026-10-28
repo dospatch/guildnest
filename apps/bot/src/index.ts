@@ -13,7 +13,9 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 // check whether the Discord Gateway connection is ready without exposing secrets.
 const port = Number(process.env.PORT || 3000);
 const server = createServer((request, response) => {
-  if (request.url === '/health' || request.url === '/') {
+  // Normalize the URL so query strings and trailing slashes don't break health checks.
+  const pathname = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`).pathname.replace(/\\/+$/, '') || '/';
+  if (pathname === '/health' || pathname === '/api/health' || pathname === '/') {
     const online = client.isReady();
     response.writeHead(200, {
       'content-type': 'application/json; charset=utf-8',

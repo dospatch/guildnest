@@ -428,8 +428,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.reply({ content: 'This suggestion is unavailable.', flags: MessageFlags.Ephemeral });
         return;
       }
-      const alreadyVoted = message.reactions.cache.some((reaction) => reaction.emoji.name === '👍' && reaction.users.cache.has(interaction.user.id));
-      if (alreadyVoted) {
+      const thumbsUpReaction = message.reactions.cache.find((reaction) => reaction.emoji.name === '👍');
+      const voters = thumbsUpReaction ? await thumbsUpReaction.users.fetch().catch(() => null) : null;
+      if (voters?.has(interaction.user.id)) {
         await interaction.reply({ content: 'You have already voted on this suggestion.', flags: MessageFlags.Ephemeral });
         return;
       }

@@ -1,0 +1,31 @@
+name: GuildNest checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm install
+      - name: Type-check NestMate
+        run: npm run typecheck:bot
+      - name: Type-check dashboard
+        run: npm run typecheck:web
+      - name: Build dashboard
+        run: npm run build:web

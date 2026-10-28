@@ -137,7 +137,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'help') {
         await interaction.reply({
-          content: '**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — build the server layout and support panel\n`/ticket-panel` — post a support panel in a chosen category\n`/community-panel` — post Bug Reports, Suggestions, and Feedback buttons\n\nGuildNest is being built in stages.',
+          content: '**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — build the server layout and support panel\n`/sync` — check and safely restore missing configured items\n`/ticket-panel` — post a support panel in a chosen category\n`/community-panel` — post Bug Reports, Suggestions, and Feedback buttons\n\nGuildNest is being built in stages.',
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -278,6 +278,65 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
+      if (interaction.commandName === 'sync') {
+        const guild = interaction.guild;
+        if (!guild) {
+          await interaction.reply({ content: 'Run /sync inside your Discord server.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+          await interaction.reply({ content: 'You need Manage Server permission to run /sync.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+
+        const expectedCategories = ['INFORMATION', 'COMMUNITY', 'SUPPORT'];
+        const expectedChannels = [
+          { name: 'welcome', category: 'INFORMATION', topic: 'Welcome to the community. Read the rules and introduce yourself.' },
+          { name: 'rules', category: 'INFORMATION', topic: 'Community rules and expectations.' },
+          { name: 'announcements', category: 'INFORMATION', topic: 'Official community announcements.' },
+          { name: 'updates', category: 'INFORMATION', topic: 'GuildNest bot updates, new features, fixes, and service notices.' },
+          { name: 'general', category: 'COMMUNITY', topic: 'General community conversation.' },
+          { name: 'introductions', category: 'COMMUNITY', topic: 'Say hello and introduce yourself.' },
+          { name: 'support-tickets', category: 'SUPPORT', topic: 'Open a private support ticket using the panel below.' },
+        ];
+        const expectedRoles = [
+          { name: 'GuildNest Moderator', color: 0x3498DB },
+          { name: 'Support Team', color: 0x2ECC71 },
+          { name: 'Community Member', color: 0x95A5A6 },
+          { name: 'GuildNest Updates', color: 0xF1C40F },
+        ];
+        const missingCategories = expectedCategories.filter((name) =>
+          !guild.channels.cache.some((channel) => channel.type === ChannelType.GuildCategory && channel.name === name),
+        );
+        const missingChannels = expectedChannels.filter((item) =>
+          !guild.channels.cache.some((channel) => channel.type === ChannelType.GuildText && channel.name === item.name),
+        );
+        const missingRoles = expectedRoles.filter((item) =>
+          !guild.roles.cache.some((role) => role.name.toLowerCase() === item.name.toLowerCase()),
+        );
+        const missingCount = missingCategories.length + missingChannels.length + missingRoles.length;
+        if (!missingCount) {
+          await interaction.reply({
+            content: '✅ GuildNest sync check complete. All configured starter categories, channels, and roles are present. Nothing was changed.',
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+        const summary = [
+          ...missingCategories.map((name) => `• Category: ${name}`),
+          ...missingChannels.map((item) => `• Channel: #${item.name}`),
+          ...missingRoles.map((item) => `• Role: ${item.name}`),
+        ].join('\n');
+        await interaction.reply({
+          content: `**GuildNest Sync Check**\nI found ${missingCount} missing configured item(s):\n${summary}\n\nNothing has been changed. Press **Restore Missing Items** to recreate only these missing GuildNest items. Existing channels and roles will not be deleted or modified.`,
+          components: [new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder().setCustomId('guildnest:sync:restore').setLabel('Restore Missing Items').setEmoji('🔄').setStyle(ButtonStyle.Success),
+          )],
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
       if (interaction.commandName === 'community-panel') {
         if (!interaction.guild || !interaction.channel || !interaction.channel.isTextBased() || !('send' in interaction.channel)) {
           await interaction.reply({ content: 'Use this command in a server text channel.', flags: MessageFlags.Ephemeral });
@@ -373,6 +432,78 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       await message.react('👍');
       await interaction.reply({ content: 'Your vote has been recorded.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    if (interaction.isButton() && interaction.customId === 'guildnest:sync:restore') {
+      const guild = interaction.guild;
+      if (!guild || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+        await interaction.reply({ content: 'Only a server manager can restore GuildNest items.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      const botMember = guild.members.me;
+      if (!botMember?.permissions.has(PermissionFlagsBits.ManageChannels) || !botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
+        await interaction.reply({ content: 'I need Manage Channels and Manage Roles permissions before I can restore missing items.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await interaction.deferUpdate();
+      const created: string[] = [];
+      const findCategory = (name: string) => guild.channels.cache.find((channel) => channel.type === ChannelType.GuildCategory && channel.name === name);
+      const ensureCategory = async (name: string) => {
+        const existing = findCategory(name);
+        if (existing) return existing;
+        const createdChannel = await guild.channels.create({ name, type: ChannelType.GuildCategory, reason: 'GuildNest safe sync restoration' });
+        created.push(`category ${name}`);
+        return createdChannel;
+      };
+      const categoryInfo = await ensureCategory('INFORMATION');
+      const categoryCommunity = await ensureCategory('COMMUNITY');
+      const categorySupport = await ensureCategory('SUPPORT');
+      const categoryByName: Record<string, string> = {
+        INFORMATION: categoryInfo.id,
+        COMMUNITY: categoryCommunity.id,
+        SUPPORT: categorySupport.id,
+      };
+      const channelsToRestore = [
+        { name: 'welcome', category: 'INFORMATION', topic: 'Welcome to the community. Read the rules and introduce yourself.' },
+        { name: 'rules', category: 'INFORMATION', topic: 'Community rules and expectations.' },
+        { name: 'announcements', category: 'INFORMATION', topic: 'Official community announcements.' },
+        { name: 'updates', category: 'INFORMATION', topic: 'GuildNest bot updates, new features, fixes, and service notices.' },
+        { name: 'general', category: 'COMMUNITY', topic: 'General community conversation.' },
+        { name: 'introductions', category: 'COMMUNITY', topic: 'Say hello and introduce yourself.' },
+        { name: 'support-tickets', category: 'SUPPORT', topic: 'Open a private support ticket using the panel below.' },
+      ];
+      for (const item of channelsToRestore) {
+        const exists = guild.channels.cache.some((channel) => channel.type === ChannelType.GuildText && channel.name === item.name);
+        if (!exists) {
+          await guild.channels.create({
+            name: item.name,
+            type: ChannelType.GuildText,
+            parent: categoryByName[item.category],
+            topic: item.topic,
+            reason: 'GuildNest safe sync restoration',
+          });
+          created.push(`#${item.name}`);
+        }
+      }
+      const rolesToRestore = [
+        { name: 'GuildNest Moderator', color: 0x3498DB },
+        { name: 'Support Team', color: 0x2ECC71 },
+        { name: 'Community Member', color: 0x95A5A6 },
+        { name: 'GuildNest Updates', color: 0xF1C40F },
+      ];
+      for (const item of rolesToRestore) {
+        if (!guild.roles.cache.some((role) => role.name.toLowerCase() === item.name.toLowerCase())) {
+          await guild.roles.create({ name: item.name, color: item.color, reason: 'GuildNest safe sync restoration' });
+          created.push(`role ${item.name}`);
+        }
+      }
+      await interaction.editReply({
+        content: created.length
+          ? `✅ **GuildNest safe sync finished.** Restored:\n${created.map((item) => `• ${item}`).join('\n')}\n\nNo existing channels or roles were deleted or changed. Run /setup if you also need to restore the support or community panels.`
+          : '✅ Everything was already present; nothing needed to be restored.',
+        components: [],
+      });
       return;
     }
 

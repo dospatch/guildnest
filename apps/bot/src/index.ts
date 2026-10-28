@@ -369,9 +369,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     }
 
-    if (interaction.isButton() && interaction.customId.startsWith('guildnest:community:')) {
+    if (interaction.isButton() && [
+      'guildnest:community:bug',
+      'guildnest:community:suggestion',
+      'guildnest:community:feedback',
+    ].includes(interaction.customId)) {
       const kind = interaction.customId.split(':')[2] as 'bug' | 'suggestion' | 'feedback';
-      if (!['bug', 'suggestion', 'feedback'].includes(kind)) return;
       await interaction.showModal(communityModal(kind));
       return;
     }

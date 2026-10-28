@@ -15,6 +15,16 @@ export default function DiscordLogin() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    const reason = new URLSearchParams(window.location.search).get('discord_error');
+    const authErrors: Record<string, string> = {
+      cancelled: 'Discord sign-in was cancelled.',
+      invalid_state: 'The sign-in request expired or could not be verified. Please try again.',
+      not_configured: 'Discord sign-in is not configured yet. Add the required environment variables in Vercel.',
+      token_exchange_failed: 'Discord could not complete sign-in. Check the OAuth client settings and redirect URL.',
+      profile_failed: 'Discord signed you in, but GuildNest could not load your profile.',
+      callback_failed: 'Something went wrong during Discord sign-in. Please try again.',
+    };
+    if (reason) setMessage(authErrors[reason] || 'Discord sign-in failed. Please try again.');
     let active = true;
     fetch('/api/auth/session', { cache: 'no-store' })
       .then((response) => response.json())
@@ -56,6 +66,7 @@ export default function DiscordLogin() {
     return (
       <div className="auth-actions">
         <a className="discord-login" href="/api/auth/discord"><span aria-hidden="true">◈</span> Login with Discord</a>
+        {message && <span className="auth-message">{message}</span>}
       </div>
     );
   }

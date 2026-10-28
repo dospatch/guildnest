@@ -109,3 +109,33 @@ h2{font:700 21px Manrope,sans-serif;letter-spacing:-.6px;margin:0}
 @media(max-width:1100px){.sidebar{width:220px}.content{padding-left:28px;padding-right:28px}.topbar{padding:0 28px}.hero-art{margin-right:0}.module-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.shell{display:block}.sidebar{position:relative;width:100%;height:auto;padding:17px 16px;border-right:0;border-bottom:1px solid var(--line)}.brand{padding:0 3px 15px}.workspace-label{display:none}.nav-list{display:flex;gap:5px;overflow-x:auto;padding-bottom:4px}.nav-item{flex-shrink:0;white-space:nowrap}.sidebar-module-heading{padding:13px 4px 7px}.sidebar-module-list{display:flex;gap:5px;overflow-x:auto;padding-bottom:5px}.sidebar-module-item{flex-shrink:0;white-space:nowrap;border:1px solid #252a30}.sidebar-module-status{display:none}.sidebar-bottom{display:none}.topbar{height:52px;padding:0 18px}.environment{font-size:8px;padding:6px}.avatar{width:27px;height:27px}.content{padding:28px 17px 20px}.welcome-row{min-height:0;margin-bottom:23px}.hero-art{display:none}h1{font-size:39px;letter-spacing:-2px;margin-top:13px}.mobile-break{display:block}.welcome-copy{font-size:12px}.notice{align-items:flex-start;flex-wrap:wrap;margin-bottom:32px;padding:13px}.notice>div{flex:1;min-width:180px}.notice>a{margin-left:35px}.section-heading{align-items:start;gap:10px}.section-heading h2{font-size:18px}.section-meta{font-size:8px;text-align:right;line-height:1.5;max-width:90px}.module-grid{grid-template-columns:1fr;gap:10px;margin-top:15px}.module-card{min-height:0;padding:15px}.module-card p{min-height:0;margin-bottom:12px}.lower-grid{grid-template-columns:1fr;margin-top:24px}.panel{padding:16px}.footer{flex-wrap:wrap;line-height:1.5}.footer span:nth-child(2){order:3;width:100%}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+
+/* Discord authentication controls */
+.auth-actions{display:flex;align-items:center;gap:9px}
+.discord-login{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #6b4228;background:linear-gradient(135deg,#ff9a52,#ff8132);color:#21140d;border-radius:8px;padding:9px 12px;font:700 11px 'DM Sans',sans-serif;white-space:nowrap;cursor:pointer}
+.discord-login:hover{filter:brightness(1.07)}
+.discord-login.secondary{background:#1b1d21;color:#f0f1f3;border-color:#333942}
+.auth-loading{font-size:10px;color:var(--muted)}
+.auth-area{display:flex;align-items:center;gap:8px;position:relative}
+.signed-in-user{display:flex;align-items:center;gap:7px;color:#d9dde2;font-size:11px}
+.signed-in-user img,.avatar-fallback{width:28px;height:28px;border-radius:9px;object-fit:cover}
+.avatar-fallback,.guild-fallback{display:grid;place-items:center;background:#2a2019;color:var(--orange);font-weight:700}
+.sign-out{border:0;background:transparent;color:#a3abb5;font:500 10px 'DM Sans',sans-serif;cursor:pointer;padding:8px}
+.sign-out:hover{color:#fff}
+.auth-message{position:absolute;top:100%;right:0;width:260px;padding:10px;background:#211911;border:1px solid #44301f;border-radius:8px;color:#ffbf91;font-size:11px;z-index:10}
+.guild-popover{position:absolute;z-index:20;right:0;top:calc(100% + 10px);width:min(330px,calc(100vw - 30px));max-height:360px;overflow:auto;padding:14px;background:#15181c;border:1px solid #343a42;border-radius:10px;box-shadow:0 16px 50px #0008}
+.guild-popover>strong{display:block;font-size:12px;margin-bottom:10px}
+.guild-option{display:flex;align-items:center;gap:9px;padding:9px 0;border-top:1px solid #292e34;font-size:11px}
+.guild-option img,.guild-fallback{width:28px;height:28px;object-fit:cover;border-radius:8px;flex-shrink:0}
+.guild-option>span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.guild-option small{margin-left:auto;font-size:8px;letter-spacing:.7px;color:#ffb17a}
+.guild-popover p{font-size:11px;color:#ffbf91;line-height:1.5;margin:8px 0 0}
+.module-card{display:block;color:inherit;text-decoration:none}
+.module-card:focus-visible,.discord-login:focus-visible,.nav-item:focus-visible,.sidebar-module-item:focus-visible{outline:2px solid var(--orange);outline-offset:3px}
+.module-detail{max-width:900px;margin:0 auto}
+.module-detail .back-link{display:inline-block;color:#ffb17a;font-size:12px;margin-bottom:24px}
+.module-detail .module-detail-panel{margin-top:24px;border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:24px}
+.module-detail-panel p,.module-detail-panel li{color:#a0a7b0;line-height:1.8;font-size:13px}
+.module-detail-panel ul{padding-left:20px}
+@media(max-width:760px){.topbar{gap:8px}.topbar-right{gap:8px}.environment{display:none}.auth-area{gap:4px;flex-wrap:wrap;justify-content:flex-end}.signed-in-user span{display:none}.discord-login{padding:8px 9px;font-size:10px}.sign-out{padding:6px}.guild-popover{position:fixed;top:120px;right:12px}.auth-message{position:fixed;top:115px;right:12px}}

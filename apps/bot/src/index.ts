@@ -283,8 +283,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
           await interaction.reply({ content: 'Use this command in a server text channel.', flags: MessageFlags.Ephemeral });
           return;
         }
-        await interaction.channel.send({ embeds: [communityPanel()], components: [communityPanelRow()] });
-        await interaction.reply({ content: 'GuildNest Community Center panel posted.', flags: MessageFlags.Ephemeral });
+        const panelEmbed = communityPanel();
+        const image = interaction.options.getAttachment('image');
+        if (image && image.contentType?.startsWith('image/')) panelEmbed.setImage(image.url);
+        await interaction.channel.send({ embeds: [panelEmbed], components: [communityPanelRow()] });
+        await interaction.reply({ content: image ? 'GuildNest Community Center panel posted with your image.' : 'GuildNest Community Center panel posted.', flags: MessageFlags.Ephemeral });
         return;
       }
 

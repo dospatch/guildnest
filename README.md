@@ -66,6 +66,26 @@ Open http://localhost:3000. The dashboard supports Discord OAuth sign-in and lis
 
 Never paste your bot token into chat, screenshots, source code, or GitHub. If a token is accidentally exposed, reset it in the Discord Developer Portal.
 
+## Support tickets
+
+A server manager with **Manage Server** permission can run `/ticket-panel` in the channel where members should open tickets. Members press **Open a support ticket** to create a private channel. The ticket owner and configured staff role can see it; staff can claim tickets, and the owner or staff can close them. Closed tickets are retained for staff reference.
+
+NestMate needs these Discord permissions to operate the ticket system:
+
+- View Channels
+- Send Messages
+- Read Message History
+- Manage Channels
+- Embed Links
+
+Optional Render environment variables (set the values to IDs from your Discord server; leave blank to skip each option):
+
+- `TICKET_CATEGORY_ID` — create ticket channels under this category
+- `TICKET_STAFF_ROLE_ID` — grant this role access to tickets and allow its members to claim tickets
+- `TICKET_LOG_CHANNEL_ID` — send a short log message when a ticket is closed
+
+Set optional values in Render's service environment settings, not in source code. Never add bot tokens or other secrets to GitHub. If you change environment variables, redeploy the service.
+
 ## Checks
 
 ```powershell
@@ -76,6 +96,6 @@ npm run build:web
 
 ## Project status
 
-The starter slash commands are `/help`, `/module`, and `/setup`. The setup command is guidance-only; it does not create or change channels, roles, or permissions. Discord OAuth and managed-server listing are implemented but require environment configuration. The dashboard status panel refreshes the session and managed-server list every 30 seconds while the page is open. Tickets, applications, moderation actions, and live guild metrics remain future milestones.
+Implemented bot commands: `/help`, `/module`, `/setup`, and `/ticket-panel`. The ticket flow supports private ticket creation, staff claiming, closing, and optional close logging. The setup command remains guidance-only. Discord OAuth and managed-server listing are implemented but require environment configuration. Applications, moderation actions, and live guild metrics remain future milestones.
 
 We are keeping development free-first. Do not add paid services or subscriptions without explicit approval.

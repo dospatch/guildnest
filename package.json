@@ -11,7 +11,11 @@
     "dev:bot": "npm run dev --workspace @guildnest/bot",
     "start:bot": "npm run start --workspace @guildnest/bot",
     "register:commands": "npm run register:commands --workspace @guildnest/bot",
-    "typecheck:bot": "npm run typecheck --workspace @guildnest/bot"
+    "typecheck:bot": "npm run typecheck --workspace @guildnest/bot",
+    "dev:web": "npm run dev --workspace @guildnest/web",
+    "build:web": "npm run build --workspace @guildnest/web",
+    "start:web": "npm run start --workspace @guildnest/web",
+    "typecheck:web": "npm run typecheck --workspace @guildnest/web"
   },
   "engines": {
     "node": ">=20"

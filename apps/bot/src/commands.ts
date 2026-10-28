@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 
 export const commands = [
   new SlashCommandBuilder()
@@ -10,4 +10,8 @@ export const commands = [
   new SlashCommandBuilder()
     .setName('setup')
     .setDescription('Show the safe first-time setup checklist for this server.'),
+  new SlashCommandBuilder()
+    .setName('ticket-panel')
+    .setDescription('Post the GuildNest support ticket panel in this channel.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 ].map((command) => command.toJSON());

@@ -15,7 +15,7 @@ const port = Number(process.env.PORT || 3000);
 const server = createServer((request, response) => {
   if (request.url === '/health' || request.url === '/') {
     const online = client.isReady();
-    response.writeHead(online ? 200 : 503, {
+    response.writeHead(200, {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': 'no-store',
     });
@@ -85,7 +85,7 @@ client.login(token).catch((error: unknown) => {
     'NestMate could not connect to Discord. Check that DISCORD_BOT_TOKEN belongs to this application.',
     error instanceof Error ? error.message : 'Unknown login error',
   );
-  process.exitCode = 1;
+  server.close(() => process.exit(1));
 });
 
 process.on('SIGTERM', () => {

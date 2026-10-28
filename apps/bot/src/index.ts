@@ -257,9 +257,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
         { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.EmbedLinks] },
         { id: botMember.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
       ];
-      if (ticketStaffRoleId && guild.roles.cache.has(ticketStaffRoleId)) {
+      const staffRole = ticketStaffRoleId
+        ? guild.roles.cache.get(ticketStaffRoleId)
+        : guild.roles.cache.find((role) => role.name.toLowerCase() === 'support team');
+      if (staffRole) {
         overwrites.push({
-          id: ticketStaffRoleId,
+          id: staffRole.id,
           allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
         });
       }
@@ -268,13 +271,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
         name: `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 80)}`,
         type: ChannelType.GuildText,
         topic: `guildnest-ticket:${interaction.user.id}:open`,
-        ...(ticketCategoryId ? { parent: ticketCategoryId } : {}),
+        ...((ticketCategoryId && guild.channels.cache.has(ticketCategoryId))
+          ? { parent: ticketCategoryId }
+          : (() => {
+              const supportCategory = guild.channels.cache.find((item) => item.type === ChannelType.GuildCategory && item.name.toLowerCase() === 'support');
+              return supportCategory ? { parent: supportCategory.id } : {};
+            })()),
         permissionOverwrites: overwrites,
         reason: `Support ticket opened by ${interaction.user.tag}`,
       });
 
       await ticketChannel.send({
-        content: `Welcome <@${interaction.user.id}>! Please describe what you need help with. Staff will respond here.${ticketStaffRoleId && guild.roles.cache.has(ticketStaffRoleId) ? ` <@&${ticketStaffRoleId}>` : ''}`,
+        content: `Welcome <@${interaction.user.id}>! Please describe what you need help with. Staff will respond here.${staffRole ? ` <@&${staffRole.id}>` : ''}`,
         embeds: [new EmbedBuilder()
           .setColor(0x5865F2)
           .setTitle('Support Ticket')
@@ -294,11 +302,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     const [, ownerId, ticketState] = channel.topic.split(':');
+    const configuredStaffRole = ticketStaffRoleId
+      ? guild.roles.cache.get(ticketStaffRoleId)
+      : guild.roles.cache.find((role) => role.name.toLowerCase() === 'support team');
     const isStaff = interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels) ||
       interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild) ||
-      Boolean(ticketStaffRoleId && interaction.member && 'roles' in interaction.member &&
+      Boolean(configuredStaffRole && interaction.member && 'roles' in interaction.member &&
         interaction.member.roles && 'cache' in interaction.member.roles &&
-        interaction.member.roles.cache.has(ticketStaffRoleId));
+        interaction.member.roles.cache.has(configuredStaffRole.id));
 
     if (interaction.customId === 'guildnest:ticket:claim') {
       if (!isStaff) {

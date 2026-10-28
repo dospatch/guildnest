@@ -230,12 +230,30 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await ensureTextChannel('welcome', infoCategory, 'Welcome to the community. Read the rules and introduce yourself.');
         await ensureTextChannel('rules', infoCategory, 'Community rules and expectations.');
         await ensureTextChannel('announcements', infoCategory, 'Official community announcements.');
+        const updatesChannel = await ensureTextChannel('updates', infoCategory, 'GuildNest bot updates, new features, fixes, and service notices.');
         await ensureTextChannel('general', communityCategory, 'General community conversation.');
         await ensureTextChannel('introductions', communityCategory, 'Say hello and introduce yourself.');
         const ticketChannel = await ensureTextChannel('support-tickets', supportCategory, 'Open a private support ticket using the panel below.');
         await ensureRole('GuildNest Moderator', 0x3498DB);
         await ensureRole('Support Team', 0x2ECC71);
         await ensureRole('Community Member', 0x95A5A6);
+        await ensureRole('GuildNest Updates', 0xF1C40F);
+
+        const existingUpdatesPanel = await updatesChannel.messages.fetch({ limit: 20 }).then((messages) =>
+          messages.some((message) => message.author.id === client.user?.id && message.embeds.some((embed) => embed.title === 'GuildNest Updates')),
+        ).catch(() => false);
+        if (!existingUpdatesPanel) {
+          await updatesChannel.send({
+            embeds: [new EmbedBuilder()
+              .setColor(0xF1C40F)
+              .setTitle('GuildNest Updates')
+              .setDescription('Follow this channel for new features, fixes, maintenance notices, and important GuildNest news.\n\nWant to receive update notifications? Ask a server administrator to assign you the **GuildNest Updates** role.')
+              .setFooter({ text: 'Powered by NestMate · GuildNest' })],
+          });
+          created.push('#updates announcement panel');
+        } else {
+          skipped.push('#updates announcement panel (already exists)');
+        }
 
         const existingPanel = await ticketChannel.messages.fetch({ limit: 20 }).then((messages) =>
           messages.some((message) => message.author.id === client.user?.id && message.embeds.some((embed) => embed.title === 'GuildNest Support')),

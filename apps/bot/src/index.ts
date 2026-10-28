@@ -86,7 +86,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'help') {
         await interaction.reply({
-          content: '**NestMate · GuildNest**\\n\\n`/help` — show this help\\n`/module` — view module status\\n`/setup` — view the server setup checklist\\n`/ticket-panel` — post a support panel (server managers only)\\n\\nGuildNest is being built in stages.',
+          content: '**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — view the server setup checklist\n`/ticket-panel` — post a support panel (server managers only)\n\nGuildNest is being built in stages.',
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -94,7 +94,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (interaction.commandName === 'module') {
         await interaction.reply({
-          content: '**GuildNest Modules**\\n\\n🟢 **Core commands** — online\\n🟢 **Support tickets** — panel, private channels, claim, and close are available\\n🟡 **Server setup** — checklist only\\n⚪ **Applications, moderation, and dashboard controls** — planned',
+          content: '**GuildNest Modules**\n\n🟢 **Core commands** — online\n🟢 **Support tickets** — panel, private channels, claim, and close are available\n🟡 **Server setup** — checklist only\n⚪ **Applications, moderation, and dashboard controls** — planned',
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -102,7 +102,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (interaction.commandName === 'setup') {
         await interaction.reply({
-          content: '**GuildNest setup checklist**\\n\\n1. Create information, community, and support channels.\\n2. Decide which staff roles may manage the server.\\n3. Give NestMate only the permissions it needs.\\n4. Use `/ticket-panel` in the channel where members should open tickets.\\n\\nOptional Render settings can restrict tickets to a category, add a staff role, and send logs to a channel.',
+          content: '**GuildNest setup checklist**\n\n1. Create information, community, and support channels.\n2. Decide which staff roles may manage the server.\n3. Give NestMate only the permissions it needs.\n4. Use `/ticket-panel` in the channel where members should open tickets.\n\nOptional Render settings can restrict tickets to a category, add a staff role, and send logs to a channel.',
           flags: MessageFlags.Ephemeral,
         });
         return;

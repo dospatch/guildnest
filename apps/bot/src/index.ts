@@ -101,9 +101,79 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
 
       if (interaction.commandName === 'setup') {
-        await interaction.reply({
-          content: '**GuildNest setup checklist**\n\n1. Create information, community, and support channels.\n2. Decide which staff roles may manage the server.\n3. Give NestMate only the permissions it needs.\n4. Use `/ticket-panel` in the channel where members should open tickets.\n\nOptional Render settings can restrict tickets to a category, add a staff role, and send logs to a channel.',
-          flags: MessageFlags.Ephemeral,
+        const guild = interaction.guild;
+        if (!guild) {
+          await interaction.reply({ content: 'Run setup inside your Discord server.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+          await interaction.reply({ content: 'You need Manage Server permission to run setup.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const created: string[] = [];
+        const skipped: string[] = [];
+        const ensureCategory = async (name: string) => {
+          const found = guild.channels.cache.find((channel) => channel.type === ChannelType.GuildCategory && channel.name === name);
+          if (found) { skipped.push(`category: ${name}`); return found.id; }
+          const channel = await guild.channels.create({ name, type: ChannelType.GuildCategory, reason: 'GuildNest automatic server setup' });
+          created.push(`category: ${name}`);
+          return channel.id;
+        };
+        const ensureTextChannel = async (name: string, parent: string, topic: string) => {
+          const found = guild.channels.cache.find((channel) => channel.type === ChannelType.GuildText && channel.name === name);
+          if (found) { skipped.push(`#${name}`); return found; }
+          const channel = await guild.channels.create({
+            name,
+            type: ChannelType.GuildText,
+            parent,
+            topic,
+            reason: 'GuildNest automatic server setup',
+          });
+          created.push(`#${name}`);
+          return channel;
+        };
+        const ensureRole = async (name: string, color: number) => {
+          const found = guild.roles.cache.find((role) => role.name.toLowerCase() === name.toLowerCase());
+          if (found) { skipped.push(`role: ${name}`); return found; }
+          const role = await guild.roles.create({ name, color, reason: 'GuildNest automatic server setup' });
+          created.push(`role: ${name}`);
+          return role;
+        };
+
+        const infoCategory = await ensureCategory('INFORMATION');
+        const communityCategory = await ensureCategory('COMMUNITY');
+        const supportCategory = await ensureCategory('SUPPORT');
+        await ensureTextChannel('welcome', infoCategory, 'Welcome to the community. Read the rules and introduce yourself.');
+        await ensureTextChannel('rules', infoCategory, 'Community rules and expectations.');
+        await ensureTextChannel('announcements', infoCategory, 'Official community announcements.');
+        await ensureTextChannel('general', communityCategory, 'General community conversation.');
+        await ensureTextChannel('introductions', communityCategory, 'Say hello and introduce yourself.');
+        const ticketChannel = await ensureTextChannel('support-tickets', supportCategory, 'Open a private support ticket using the panel below.');
+        await ensureRole('GuildNest Moderator', 0x3498DB);
+        await ensureRole('Support Team', 0x2ECC71);
+        await ensureRole('Community Member', 0x95A5A6);
+
+        const existingPanel = await ticketChannel.messages.fetch({ limit: 20 }).then((messages) =>
+          messages.some((message) => message.author.id === client.user?.id && message.embeds.some((embed) => embed.title === 'GuildNest Support')),
+        ).catch(() => false);
+        if (!existingPanel) {
+          await ticketChannel.send({
+            embeds: [new EmbedBuilder()
+              .setColor(0x5865F2)
+              .setTitle('GuildNest Support')
+              .setDescription('Need help from the team? Press the button below to open a private support ticket. Please create one ticket per issue.')
+              .setFooter({ text: 'Powered by NestMate · GuildNest' })],
+            components: [ticketPanelRow()],
+          });
+          created.push('support ticket panel');
+        } else {
+          skipped.push('support ticket panel (already exists)');
+        }
+
+        await interaction.editReply({
+          content: `**GuildNest setup finished.**\n\n**Created:** ${created.length ? created.map((item) => `• ${item}`).join('\n') : 'Nothing new was needed.'}\n\n**Already existed:** ${skipped.length ? skipped.map((item) => `• ${item}`).join('\n') : 'None'}\n\nNo existing channels or roles were deleted. For private ticket creation, make sure NestMate has **Manage Channels**, **View Channels**, **Send Messages**, **Read Message History**, and **Embed Links** permissions.`,
         });
         return;
       }

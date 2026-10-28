@@ -14,6 +14,7 @@ export const commands = [
   new SlashCommandBuilder()
     .setName('community-panel')
     .setDescription('Post the GuildNest Bug Reports, Suggestions, and Feedback panel.')
+    .addAttachmentOption((option) => option.setName('image').setDescription('Optional screenshot or image to display on the panel').setRequired(false))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder()
     .setName('ticket-panel')

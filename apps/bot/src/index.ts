@@ -86,7 +86,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'help') {
         await interaction.reply({
-          content: '**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — view the server setup checklist\n`/ticket-panel` — post a support panel (server managers only)\n\nGuildNest is being built in stages.',
+          content: '**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — build the server layout and support panel\n`/ticket-panel` — post a support panel (server managers only)\n\nGuildNest is being built in stages.',
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -94,7 +94,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (interaction.commandName === 'module') {
         await interaction.reply({
-          content: '**GuildNest Modules**\n\n🟢 **Core commands** — online\n🟢 **Support tickets** — panel, private channels, claim, and close are available\n🟡 **Server setup** — checklist only\n⚪ **Applications, moderation, and dashboard controls** — planned',
+          content: '**GuildNest Modules**\n\n🟢 **Core commands** — online\n🟢 **Support tickets** — panel, private channels, claim, and close are available\n🟢 **Server setup** — creates starter categories, channels, roles, and support panel\n🟡 **Applications, moderation, and dashboard controls** — still being built',
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -111,7 +111,38 @@ client.on(Events.InteractionCreate, async (interaction) => {
           return;
         }
 
+        const botMember = guild.members.me;
+        if (!botMember) {
+          await interaction.reply({ content: 'I could not verify NestMate\'s server membership. Please try again in a moment.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        const requiredPermissions = [
+          PermissionFlagsBits.ManageChannels,
+          PermissionFlagsBits.ManageRoles,
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.EmbedLinks,
+        ];
+        const missingPermissions = requiredPermissions.filter((permission) => !botMember.permissions.has(permission));
+        if (missingPermissions.length) {
+          const names = missingPermissions.map((permission) => {
+            if (permission === PermissionFlagsBits.ManageChannels) return 'Manage Channels';
+            if (permission === PermissionFlagsBits.ManageRoles) return 'Manage Roles';
+            if (permission === PermissionFlagsBits.ViewChannel) return 'View Channels';
+            if (permission === PermissionFlagsBits.SendMessages) return 'Send Messages';
+            if (permission === PermissionFlagsBits.ReadMessageHistory) return 'Read Message History';
+            return 'Embed Links';
+          });
+          await interaction.reply({
+            content: `NestMate cannot run setup yet. Please grant the bot these server permissions and run \`/setup\` again: **${names.join(', ')}**.`,
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.editReply({ content: 'NestMate is setting up your server. I will report any error here.' });
         const created: string[] = [];
         const skipped: string[] = [];
         const ensureCategory = async (name: string) => {
@@ -306,12 +337,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.editReply({ content: 'Ticket closed. The channel was kept for staff reference.' });
     }
   } catch (error) {
-    console.error('Interaction handler failed:', error instanceof Error ? error.message : 'Unknown error');
-    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: 'NestMate ran into a problem. Check its server permissions and try again.',
-        flags: MessageFlags.Ephemeral,
-      }).catch(() => undefined);
+    console.error('Interaction handler failed:', error instanceof Error ? (error.stack ?? error.message) : error);
+    const detail = error instanceof Error ? error.message : 'Unknown error';
+    const safeMessage = `NestMate could not finish this action. Error: ${detail.slice(0, 700)}. Check the Render logs for the full details.`;
+    if (interaction.isRepliable()) {
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content: safeMessage }).catch(() => undefined);
+      } else {
+        await interaction.reply({ content: safeMessage, flags: MessageFlags.Ephemeral }).catch(() => undefined);
+      }
     }
   }
 });

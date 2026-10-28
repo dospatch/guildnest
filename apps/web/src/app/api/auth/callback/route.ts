@@ -41,10 +41,29 @@ export async function GET(request: NextRequest) {
       }),
       cache: 'no-store',
     });
-    if (!tokenResponse.ok) return returnToHome(request, 'token_exchange_failed');
+    if (!tokenResponse.ok) {
+      // Log only Discord's non-secret error fields and HTTP status; never log the code, token, or client secret.
+      const errorData = (await tokenResponse.json().catch(() => ({}))) as {
+        error?: string;
+        error_description?: string;
+      };
+      console.error('[GuildNest OAuth] Discord token exchange rejected the request', {
+        status: tokenResponse.status,
+        error: errorData.error ?? 'unknown_error',
+        errorDescription: errorData.error_description ?? 'No description returned',
+        redirectUriConfigured: redirectUri,
+      });
+      return returnToHome(request, 'token_exchange_failed');
+    }
 
     const tokenData = (await tokenResponse.json()) as { access_token?: string; expires_in?: number; token_type?: string };
-    if (!tokenData.access_token || !tokenData.expires_in) return returnToHome(request, 'token_exchange_failed');
+    if (!tokenData.access_token || !tokenData.expires_in) {
+      console.error('[GuildNest OAuth] Discord token response did not include required fields', {
+        hasAccessToken: Boolean(tokenData.access_token),
+        hasExpiresIn: Boolean(tokenData.expires_in),
+      });
+      return returnToHome(request, 'token_exchange_failed');
+    }
 
     const userResponse = await fetch('https://discord.com/api/users/@me', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },

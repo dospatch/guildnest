@@ -75,10 +75,10 @@ export default function Home() {
           <div className="section-heading" id="modules"><div><div className="section-kicker">THE TOOLKIT</div><h2>Everything has its place.</h2></div><span className="section-meta">6 MODULES IN THE PLAN</span></div>
           <div className="module-grid">
             {modules.map((module) => (
-              <a className="module-card" id={`module-${module.id}`} href={`#module-${module.id}`} key={module.name}>
+              <article className="module-card" id={`module-${module.id}`} key={module.name}>
                 <div className="module-top"><span className="module-icon">{module.icon}</span><span className={`pill ${module.tone}`}>{module.status}</span></div>
                 <h3>{module.name}</h3><p>{module.description}</p><div className="card-foot"><span>GUILDNEST MODULE</span><span className="arrow">↗</span></div>
-              </a>
+              </article>
             ))}
           </div>
 

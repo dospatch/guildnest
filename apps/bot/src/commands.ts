@@ -12,6 +12,10 @@ export const commands = [
     .setDescription('Build the standard GuildNest server layout and support ticket panel.')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder()
+    .setName('community-panel')
+    .setDescription('Post the GuildNest Bug Reports, Suggestions, and Feedback panel.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
     .setName('ticket-panel')
     .setDescription('Post a ticket panel that routes new tickets into a chosen category.')
     .addChannelOption((option) =>

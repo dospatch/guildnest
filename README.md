@@ -27,9 +27,9 @@ npm install
 
 In the Discord Developer Portal, open your application and add this exact redirect URI under OAuth2 Redirects:
 
-`https://YOUR-DEPLOYMENT-DOMAIN/api/auth/callback`
+`https://guildnest.vercel.app/api/auth/callback`
 
-Replace `YOUR-DEPLOYMENT-DOMAIN` with your real Vercel domain. Add these environment variables to the Vercel project (Production and Preview as appropriate):
+Use this exact URL in both the Discord Developer Portal OAuth2 Redirects list and the Vercel `DISCORD_REDIRECT_URI` environment variable. Add these environment variables to the Vercel project (Production and Preview as appropriate):
 
 - `DISCORD_CLIENT_ID` — your Discord application/client ID
 - `DISCORD_CLIENT_SECRET` — the OAuth2 client secret from the Developer Portal; keep it private

@@ -76,7 +76,7 @@ export default function Home() {
               <a className="module-card" id={`module-${module.id}`} href={`/modules/${module.id}`} key={module.name}>
                 <div className="module-top"><span className="module-icon">{module.icon}</span><span className={`pill ${module.tone}`}>{module.status}</span></div>
                 <h3>{module.name}</h3><p>{module.description}</p><div className="card-foot"><span>GUILDNEST MODULE</span><span className="arrow">↗</span></div>
-              </article>
+              </a>
             ))}
           </div>
 

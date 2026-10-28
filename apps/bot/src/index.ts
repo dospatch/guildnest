@@ -64,7 +64,7 @@ const communityModal = (kind: 'bug' | 'suggestion' | 'feedback') => {
         new TextInputBuilder().setCustomId('details').setLabel('Details').setStyle(TextInputStyle.Paragraph).setMaxLength(1800).setRequired(true).setPlaceholder(labels.placeholder),
       ),
     );
-);
+};
 
 const findSubmissionChannel = (guild: import('discord.js').Guild, configuredId: string | undefined, names: string[]) => {
   const configured = configuredId ? guild.channels.cache.get(configuredId) : undefined;

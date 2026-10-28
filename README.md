@@ -23,13 +23,30 @@ From the repository root:
 npm install
 ```
 
+## Configure Discord sign-in on Vercel
+
+In the Discord Developer Portal, open your application and add this exact redirect URI under OAuth2 Redirects:
+
+`https://YOUR-DEPLOYMENT-DOMAIN/api/auth/callback`
+
+Replace `YOUR-DEPLOYMENT-DOMAIN` with your real Vercel domain. Add these environment variables to the Vercel project (Production and Preview as appropriate):
+
+- `DISCORD_CLIENT_ID` — your Discord application/client ID
+- `DISCORD_CLIENT_SECRET` — the OAuth2 client secret from the Developer Portal; keep it private
+- `DISCORD_REDIRECT_URI` — the exact callback URL above
+- `SESSION_SECRET` — a random secret of at least 32 characters, used to encrypt the session cookie
+
+You can generate a strong session secret locally with Node.js using `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. Never commit real values to GitHub or paste secrets into chat. After setting variables, redeploy the Vercel project.
+
+The bot token is separate from the OAuth client secret. Discord login does not automatically connect the bot or implement module actions.
+
 ## Run the dashboard
 
 ```powershell
 npm run dev:web
 ```
 
-Open http://localhost:3000. The current dashboard is a frontend preview; Discord sign-in and live server data are not connected yet.
+Open http://localhost:3000. The dashboard supports Discord OAuth sign-in and lists servers where the signed-in user has management permissions. A dashboard status panel refreshes the session and managed-server list every 30 seconds while the page is open. Configure the Discord OAuth environment variables below before sign-in will work.
 
 ## Run NestMate locally
 

@@ -14,7 +14,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const port = Number(process.env.PORT || 3000);
 const server = createServer((request, response) => {
   // Normalize the URL so query strings and trailing slashes don't break health checks.
-  const pathname = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`).pathname.replace(/\\/+$/, '') || '/';
+  const pathname = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`).pathname.replace(/\/+$/, '') || '/';
   if (pathname === '/health' || pathname === '/api/health' || pathname === '/') {
     const online = client.isReady();
     response.writeHead(200, {

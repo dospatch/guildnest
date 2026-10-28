@@ -1,4 +1,4 @@
-import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import { ChannelType, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 
 export const commands = [
   new SlashCommandBuilder()
@@ -13,6 +13,13 @@ export const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder()
     .setName('ticket-panel')
-    .setDescription('Post the GuildNest support ticket panel in this channel.')
+    .setDescription('Post a ticket panel that routes new tickets into a chosen category.')
+    .addChannelOption((option) =>
+      option
+        .setName('category')
+        .setDescription('Category where tickets from this panel should be created')
+        .addChannelTypes(ChannelType.GuildCategory)
+        .setRequired(true),
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 ].map((command) => command.toJSON());

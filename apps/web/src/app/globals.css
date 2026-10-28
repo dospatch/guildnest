@@ -139,3 +139,15 @@ h2{font:700 21px Manrope,sans-serif;letter-spacing:-.6px;margin:0}
 .module-detail-panel p,.module-detail-panel li{color:#a0a7b0;line-height:1.8;font-size:13px}
 .module-detail-panel ul{padding-left:20px}
 @media(max-width:760px){.topbar{gap:8px}.topbar-right{gap:8px}.environment{display:none}.auth-area{gap:4px;flex-wrap:wrap;justify-content:flex-end}.signed-in-user span{display:none}.discord-login{padding:8px 9px;font-size:10px}.sign-out{padding:6px}.guild-popover{position:fixed;top:120px;right:12px}.auth-message{position:fixed;top:115px;right:12px}}
+
+
+/* Dashboard auto-refresh status */
+.live-status{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;margin:-22px 0 38px;border:1px solid #292e34;border-radius:9px;background:#121519}
+.live-status-heading{display:flex;align-items:center;gap:11px;min-width:0}
+.live-indicator{width:9px;height:9px;flex-shrink:0;border-radius:50%;background:#9a744e;box-shadow:0 0 0 4px #9a744e18}
+.live-indicator.connected{background:#6dd6a2;box-shadow:0 0 0 4px #6dd6a218}
+.live-status strong{display:block;font-size:11px;font-weight:700}
+.live-status p{margin:4px 0 0;color:#929aa4;font-size:10px;line-height:1.5}
+.live-status-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;white-space:nowrap;color:#77818c;font-size:9px}
+.live-status-error{color:#ffb17a!important;max-width:220px}
+@media(max-width:760px){.live-status{align-items:flex-start;flex-wrap:wrap;margin:-12px 0 28px;padding:12px}.live-status-meta{margin-left:20px;align-items:flex-start}.live-status-error{width:100%;max-width:none}}

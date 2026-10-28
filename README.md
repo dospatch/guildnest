@@ -76,6 +76,6 @@ npm run build:web
 
 ## Project status
 
-The starter slash commands are `/help`, `/module`, and `/setup`. The setup command is guidance-only; it does not create or change channels, roles, or permissions. Tickets, applications, moderation actions, Discord authentication, live server data, and persistent hosting are future milestones.
+The starter slash commands are `/help`, `/module`, and `/setup`. The setup command is guidance-only; it does not create or change channels, roles, or permissions. Discord OAuth and managed-server listing are implemented but require environment configuration. The dashboard status panel refreshes the session and managed-server list every 30 seconds while the page is open. Tickets, applications, moderation actions, and live guild metrics remain future milestones.
 
 We are keeping development free-first. Do not add paid services or subscriptions without explicit approval.

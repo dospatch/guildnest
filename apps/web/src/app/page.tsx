@@ -1,3 +1,5 @@
+import DiscordLogin from './components/discord-login';
+
 const modules = [
   { id: 'server-overview', icon: '⌘', name: 'Server overview', description: 'A home for your community settings.', status: 'Foundation', tone: 'ready' },
   { id: 'tickets-support', icon: '◷', name: 'Tickets & support', description: 'Organize member questions and staff replies.', status: 'Planned', tone: 'planned' },
@@ -31,7 +33,7 @@ export default function Home() {
         <div className="sidebar-module-heading">MODULES</div>
         <nav className="sidebar-module-list" aria-label="GuildNest modules">
           {modules.map((module) => (
-            <a className="sidebar-module-item" href={`#module-${module.id}`} key={module.id}>
+            <a className="sidebar-module-item" href={`/modules/${module.id}`} key={module.id}>
               <span className="sidebar-module-icon">{module.icon}</span>
               <span>{module.name}</span>
               <span className={`sidebar-module-status ${module.tone}`} />
@@ -53,7 +55,7 @@ export default function Home() {
       <section className="main-area" id="home">
         <header className="topbar">
           <div className="breadcrumb">Workspace <span>/</span> <strong>Overview</strong></div>
-          <div className="topbar-right"><span className="environment"><i /> DEVELOPMENT PREVIEW</span><div className="avatar">GN</div></div>
+          <div className="topbar-right"><span className="environment"><i /> GUILDNEST</span><DiscordLogin /></div>
         </header>
 
         <div className="content">
@@ -66,12 +68,12 @@ export default function Home() {
             <div className="hero-art" aria-hidden="true"><div className="orbit orbit-one"/><div className="orbit orbit-two"/><div className="hero-glyph">G<span>N</span></div><span className="spark spark-one">✦</span><span className="spark spark-two">✧</span></div>
           </div>
 
-          <div className="notice"><span className="notice-icon">i</span><div><strong>Early access preview</strong><p>This dashboard is the first interface milestone. Discord login, live server data, and module controls are not connected yet.</p></div><a href="https://github.com/dospatch/guildnest" target="_blank" rel="noreferrer">Follow development ↗</a></div>
+          <div className="notice"><span className="notice-icon">i</span><div><strong>Early access preview</strong><p>Sign in with Discord to view the servers where you have management permissions. Module actions and live server controls are being added in stages.</p></div><a href="https://github.com/dospatch/guildnest" target="_blank" rel="noreferrer">Follow development ↗</a></div>
 
           <div className="section-heading" id="modules"><div><div className="section-kicker">THE TOOLKIT</div><h2>Everything has its place.</h2></div><span className="section-meta">6 MODULES IN THE PLAN</span></div>
           <div className="module-grid">
             {modules.map((module) => (
-              <article className="module-card" id={`module-${module.id}`} key={module.name}>
+              <a className="module-card" id={`module-${module.id}`} href={`/modules/${module.id}`} key={module.name}>
                 <div className="module-top"><span className="module-icon">{module.icon}</span><span className={`pill ${module.tone}`}>{module.status}</span></div>
                 <h3>{module.name}</h3><p>{module.description}</p><div className="card-foot"><span>GUILDNEST MODULE</span><span className="arrow">↗</span></div>
               </article>

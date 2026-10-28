@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import DiscordLogin from '../components/discord-login';
 import DashboardLiveStatus from '../components/dashboard-live-status';
 
@@ -16,25 +19,59 @@ const commands = [
   { command: '/setup', detail: 'Open the server setup checklist.' },
 ];
 
-export default function Home() {
+export default function DashboardPage() {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [authorized, setAuthorized] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/auth/session', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((data: { authenticated?: boolean }) => {
+        if (!active) return;
+        if (data.authenticated) {
+          setAuthorized(true);
+        } else {
+          window.location.replace('/');
+        }
+      })
+      .catch(() => {
+        if (active) window.location.replace('/');
+      });
+    return () => { active = false; };
+  }, []);
+
+  if (!authorized) {
+    return (
+      <main className="dashboard-auth-check">
+        <div className="brand-mark">G<span>N</span></div>
+        <strong>Checking your Discord sign-in…</strong>
+        <p>GuildNest will open your dashboard after your account is verified.</p>
+      </main>
+    );
+  }
+
+  const closeMobileNav = () => setMobileNavOpen(false);
+
   return (
     <main className="shell">
-      <aside className="sidebar">
-        <a className="brand" href="#home" aria-label="GuildNest home">
+      {mobileNavOpen && <button className="mobile-nav-overlay" aria-label="Close navigation menu" onClick={closeMobileNav} />}
+      <aside className={`sidebar${mobileNavOpen ? ' sidebar-open' : ''}`}>
+        <a className="brand" href="#home" aria-label="GuildNest home" onClick={closeMobileNav}>
           <span className="brand-mark">G<span>N</span></span>
           <span className="brand-copy"><strong>GuildNest</strong><small>COMMUNITY PLATFORM</small></span>
         </a>
         <div className="workspace-label">WORKSPACE</div>
         <nav className="nav-list" aria-label="Main navigation">
-          <a className="nav-item active" href="#home"><span>▦</span> Overview</a>
-          <a className="nav-item" href="#modules"><span>◇</span> Modules <span className="nav-count">6</span></a>
-          <a className="nav-item" href="#commands"><span>⌘</span> Bot commands</a>
-          <a className="nav-item" href="#roadmap"><span>↗</span> Roadmap</a>
+          <a className="nav-item active" href="#home" onClick={closeMobileNav}><span>▦</span> Overview</a>
+          <a className="nav-item" href="#modules" onClick={closeMobileNav}><span>◇</span> Modules <span className="nav-count">6</span></a>
+          <a className="nav-item" href="#commands" onClick={closeMobileNav}><span>⌘</span> Bot commands</a>
+          <a className="nav-item" href="#roadmap" onClick={closeMobileNav}><span>↗</span> Roadmap</a>
         </nav>
         <div className="sidebar-module-heading">MODULES</div>
         <nav className="sidebar-module-list" aria-label="GuildNest modules">
           {modules.map((module) => (
-            <a className="sidebar-module-item" href={`#module-${module.id}`} key={module.id}>
+            <a className="sidebar-module-item" href={`#module-${module.id}`} key={module.id} onClick={closeMobileNav}>
               <span className="sidebar-module-icon">{module.icon}</span>
               <span>{module.name}</span>
               <span className={`sidebar-module-status ${module.tone}`} />
@@ -55,6 +92,9 @@ export default function Home() {
 
       <section className="main-area" id="home">
         <header className="topbar">
+          <button className="mobile-menu-toggle" aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen((open) => !open)}>
+            <span /><span /><span />
+          </button>
           <div className="breadcrumb">Workspace <span>/</span> <strong>Overview</strong></div>
           <div className="topbar-right"><span className="environment"><i /> GUILDNEST</span><DiscordLogin /></div>
         </header>

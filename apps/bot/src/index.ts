@@ -27,9 +27,9 @@ const ticketLogChannelId = process.env.TICKET_LOG_CHANNEL_ID;
 const botMemberHasPermission = (guild: import('discord.js').Guild, permission: bigint) =>
   Boolean(guild.members.me?.permissions.has(permission));
 
-const ticketPanelRow = () => new ActionRowBuilder<ButtonBuilder>().addComponents(
+const ticketPanelRow = (categoryId?: string) => new ActionRowBuilder<ButtonBuilder>().addComponents(
   new ButtonBuilder()
-    .setCustomId('guildnest:ticket:create')
+    .setCustomId(categoryId ? `guildnest:ticket:create:${categoryId}` : 'guildnest:ticket:create')
     .setLabel('Open a support ticket')
     .setEmoji('🎫')
     .setStyle(ButtonStyle.Primary),
@@ -217,13 +217,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
           await interaction.reply({ content: 'Use this command in a server text channel.', flags: MessageFlags.Ephemeral });
           return;
         }
+        const category = interaction.options.getChannel('category', true, [ChannelType.GuildCategory]);
         await interaction.channel.send({
           embeds: [new EmbedBuilder()
             .setColor(0x5865F2)
-            .setTitle('GuildNest Support')
-            .setDescription('Need help from the team? Press the button below to open a private support ticket. Please create one ticket per issue.')
+            .setTitle(`GuildNest Support · ${category.name}`)
+            .setDescription(`Need help from the team? Press the button below to open a private support ticket. New tickets from this panel will be created under **${category.name}**.`)
             .setFooter({ text: 'Powered by NestMate · GuildNest' })],
-          components: [ticketPanelRow()],
+          components: [ticketPanelRow(category.id)],
         });
         await interaction.reply({ content: 'Support ticket panel posted in this channel.', flags: MessageFlags.Ephemeral });
         return;
@@ -239,7 +240,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
-    if (interaction.customId === 'guildnest:ticket:create') {
+    if (interaction.customId === 'guildnest:ticket:create' || interaction.customId.startsWith('guildnest:ticket:create:')) {
+      const selectedCategoryId = interaction.customId.split(':')[3];
       const botPermissions = [
         [PermissionFlagsBits.ManageChannels, 'Manage Channels'],
         [PermissionFlagsBits.ViewChannel, 'View Channels'],
@@ -292,12 +294,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
         name: `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 80)}`,
         type: ChannelType.GuildText,
         topic: `guildnest-ticket:${interaction.user.id}:open`,
-        ...((ticketCategoryId && guild.channels.cache.has(ticketCategoryId))
-          ? { parent: ticketCategoryId }
-          : (() => {
-              const supportCategory = guild.channels.cache.find((item) => item.type === ChannelType.GuildCategory && item.name.toLowerCase() === 'support');
-              return supportCategory ? { parent: supportCategory.id } : {};
-            })()),
+        ...(() => {
+          const selectedCategory = selectedCategoryId
+            ? guild.channels.cache.get(selectedCategoryId)
+            : undefined;
+          const configuredCategory = ticketCategoryId
+            ? guild.channels.cache.get(ticketCategoryId)
+            : undefined;
+          const supportCategory = guild.channels.cache.find((item) =>
+            item.type === ChannelType.GuildCategory && item.name.toLowerCase() === 'support',
+          );
+          const parent = selectedCategory?.type === ChannelType.GuildCategory
+            ? selectedCategory
+            : configuredCategory?.type === ChannelType.GuildCategory
+              ? configuredCategory
+              : supportCategory;
+          return parent ? { parent: parent.id } : {};
+        })(),
         permissionOverwrites: overwrites,
         reason: `Support ticket opened by ${interaction.user.tag}`,
       });
@@ -344,12 +357,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
-    if (interaction.customId === 'guildnest:ticket:close') {
-      if (interaction.user.id !== ownerId && !isStaff) {
-        await interaction.reply({ content: 'Only the ticket owner or support staff can close this ticket.', flags: MessageFlags.Ephemeral });
-        return;
-      }
-      if (interaction.customId === 'guildnest:ticket:reopen') {
+    if (interaction.customId === 'guildnest:ticket:reopen') {
         if (!isStaff) {
           await interaction.reply({ content: 'Only the support team can reopen tickets.', flags: MessageFlags.Ephemeral });
           return;
@@ -370,6 +378,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
             await logChannel.send(`🔓 Ticket ${channel.name} reopened by ${interaction.user.tag}. Channel: <#${channel.id}>; owner: <@${ownerId}>.`).catch(() => undefined);
           }
         }
+        return;
+    }
+
+    if (interaction.customId === 'guildnest:ticket:close') {
+      if (interaction.user.id !== ownerId && !isStaff) {
+        await interaction.reply({ content: 'Only the ticket owner or support staff can close this ticket.', flags: MessageFlags.Ephemeral });
         return;
       }
 

@@ -9,7 +9,8 @@ export const commands = [
     .setDescription('View GuildNest modules and their planned status.'),
   new SlashCommandBuilder()
     .setName('setup')
-    .setDescription('Show the safe first-time setup checklist for this server.'),
+    .setDescription('Build the standard GuildNest server layout and support ticket panel.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder()
     .setName('ticket-panel')
     .setDescription('Post the GuildNest support ticket panel in this channel.')

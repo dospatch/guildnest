@@ -10,6 +10,9 @@ import {
   Events,
   GatewayIntentBits,
   MessageFlags,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
   PermissionFlagsBits,
   type OverwriteResolvable,
 } from 'discord.js';
@@ -23,6 +26,51 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const ticketCategoryId = process.env.TICKET_CATEGORY_ID;
 const ticketStaffRoleId = process.env.TICKET_STAFF_ROLE_ID;
 const ticketLogChannelId = process.env.TICKET_LOG_CHANNEL_ID;
+const bugReportsChannelId = process.env.BUG_REPORTS_CHANNEL_ID;
+const suggestionsChannelId = process.env.SUGGESTIONS_CHANNEL_ID;
+const feedbackChannelId = process.env.FEEDBACK_CHANNEL_ID;
+
+const communityPanel = () => new EmbedBuilder()
+  .setColor(0x5865F2)
+  .setTitle('GuildNest Community Center')
+  .setDescription('Choose an option below to contact the team or help improve GuildNest.')
+  .addFields(
+    { name: '🐛 Bug Reports', value: 'Report errors, broken commands, or unexpected behavior.', inline: true },
+    { name: '💡 Suggestions', value: 'Suggest features and improvements.', inline: true },
+    { name: '💬 General Feedback', value: 'Share feedback about GuildNest or the community.', inline: true },
+  )
+  .setFooter({ text: 'Powered by NestMate · GuildNest' });
+
+const communityPanelRow = () => new ActionRowBuilder<ButtonBuilder>().addComponents(
+  new ButtonBuilder().setCustomId('guildnest:community:bug').setLabel('Report a Bug').setEmoji('🐛').setStyle(ButtonStyle.Danger),
+  new ButtonBuilder().setCustomId('guildnest:community:suggestion').setLabel('Suggest an Idea').setEmoji('💡').setStyle(ButtonStyle.Success),
+  new ButtonBuilder().setCustomId('guildnest:community:feedback').setLabel('Send Feedback').setEmoji('💬').setStyle(ButtonStyle.Primary),
+);
+
+const communityModal = (kind: 'bug' | 'suggestion' | 'feedback') => {
+  const labels = {
+    bug: { title: 'Submit a Bug Report', description: 'What went wrong?', placeholder: 'Steps to reproduce, error message, expected result...' },
+    suggestion: { title: 'Submit a Suggestion', description: 'What would you like to see?', placeholder: 'Describe your idea and why it would help...' },
+    feedback: { title: 'Send General Feedback', description: 'Tell us what you think', placeholder: 'Share your feedback...' },
+  }[kind];
+  return new ModalBuilder()
+    .setCustomId(`guildnest:community:submit:${kind}`)
+    .setTitle(labels.title)
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder().setCustomId('title').setLabel('Title').setStyle(TextInputStyle.Short).setMaxLength(100).setRequired(true).setPlaceholder(labels.description),
+      ),
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder().setCustomId('details').setLabel('Details').setStyle(TextInputStyle.Paragraph).setMaxLength(1800).setRequired(true).setPlaceholder(labels.placeholder),
+      ),
+    );
+);
+
+const findSubmissionChannel = (guild: import('discord.js').Guild, configuredId: string | undefined, names: string[]) => {
+  const configured = configuredId ? guild.channels.cache.get(configuredId) : undefined;
+  if (configured?.isTextBased() && 'send' in configured) return configured;
+  return guild.channels.cache.find((channel) => channel.type === ChannelType.GuildText && names.includes(channel.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')));
+};
 
 const botMemberHasPermission = (guild: import('discord.js').Guild, permission: bigint) =>
   Boolean(guild.members.me?.permissions.has(permission));
@@ -212,6 +260,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
+      if (interaction.commandName === 'community-panel') {
+        if (!interaction.guild || !interaction.channel || !interaction.channel.isTextBased() || !('send' in interaction.channel)) {
+          await interaction.reply({ content: 'Use this command in a server text channel.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        await interaction.channel.send({ embeds: [communityPanel()], components: [communityPanelRow()] });
+        await interaction.reply({ content: 'GuildNest Community Center panel posted.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+
       if (interaction.commandName === 'ticket-panel') {
         if (!interaction.guild || !interaction.channel || !interaction.channel.isTextBased() || !('send' in interaction.channel)) {
           await interaction.reply({ content: 'Use this command in a server text channel.', flags: MessageFlags.Ephemeral });
@@ -229,6 +287,72 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.reply({ content: 'Support ticket panel posted in this channel.', flags: MessageFlags.Ephemeral });
         return;
       }
+    }
+
+    if (interaction.isButton() && interaction.customId.startsWith('guildnest:community:')) {
+      const kind = interaction.customId.split(':')[2] as 'bug' | 'suggestion' | 'feedback';
+      if (!['bug', 'suggestion', 'feedback'].includes(kind)) return;
+      await interaction.showModal(communityModal(kind));
+      return;
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('guildnest:community:submit:')) {
+      const kind = interaction.customId.split(':')[3] as 'bug' | 'suggestion' | 'feedback';
+      const guild = interaction.guild;
+      if (!guild) {
+        await interaction.reply({ content: 'Submit this form inside the GuildNest server.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      const config = {
+        bug: { id: bugReportsChannelId, names: ['bug-reports', 'bugs', 'bug-reports-and-issues'], label: 'Bug Report', color: 0xED4245 },
+        suggestion: { id: suggestionsChannelId, names: ['suggestions', 'feature-requests', 'ideas'], label: 'Suggestion', color: 0x57F287 },
+        feedback: { id: feedbackChannelId, names: ['feedback', 'general-feedback'], label: 'General Feedback', color: 0x5865F2 },
+      }[kind];
+      const destination = findSubmissionChannel(guild, config.id, config.names);
+      if (!destination) {
+        await interaction.reply({
+          content: `Your submission was not sent because I couldn't find a destination channel. Create a #${config.names[0]} channel or configure ${kind === 'bug' ? 'BUG_REPORTS_CHANNEL_ID' : kind === 'suggestion' ? 'SUGGESTIONS_CHANNEL_ID' : 'FEEDBACK_CHANNEL_ID'} in Render.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+      const title = interaction.fields.getTextInputValue('title').trim();
+      const details = interaction.fields.getTextInputValue('details').trim();
+      const embed = new EmbedBuilder()
+        .setColor(config.color)
+        .setTitle(`${config.label}: ${title.slice(0, 220)}`)
+        .setDescription(details.slice(0, 4000))
+        .addFields(
+          { name: 'Submitted by', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
+          { name: 'Status', value: '🟡 New', inline: true },
+        )
+        .setTimestamp()
+        .setFooter({ text: `GuildNest submission · ${kind}` });
+      const components = kind === 'suggestion'
+        ? [new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder().setCustomId('guildnest:community:vote').setLabel('Vote for this idea').setEmoji('👍').setStyle(ButtonStyle.Success),
+          )]
+        : [];
+      await destination.send({ embeds: [embed], components });
+      await interaction.reply({ content: `Your ${config.label.toLowerCase()} was sent to <#${destination.id}>. Thank you!`, flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    if (interaction.isButton() && interaction.customId === 'guildnest:community:vote') {
+      const message = interaction.message;
+      const embed = message.embeds[0];
+      if (!embed) {
+        await interaction.reply({ content: 'This suggestion is unavailable.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      const alreadyVoted = message.reactions.cache.some((reaction) => reaction.emoji.name === '👍' && reaction.users.cache.has(interaction.user.id));
+      if (alreadyVoted) {
+        await interaction.reply({ content: 'You have already voted on this suggestion.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await message.react('👍');
+      await interaction.reply({ content: 'Your vote has been recorded.', flags: MessageFlags.Ephemeral });
+      return;
     }
 
     if (!interaction.isButton()) return;

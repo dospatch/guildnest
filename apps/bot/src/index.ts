@@ -26,6 +26,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const ticketCategoryId = process.env.TICKET_CATEGORY_ID;
 const ticketStaffRoleId = process.env.TICKET_STAFF_ROLE_ID;
 const ticketLogChannelId = process.env.TICKET_LOG_CHANNEL_ID;
+const updatesChannelId = process.env.UPDATES_CHANNEL_ID;
 const bugReportsChannelId = process.env.BUG_REPORTS_CHANNEL_ID;
 const suggestionsChannelId = process.env.SUGGESTIONS_CHANNEL_ID;
 const feedbackChannelId = process.env.FEEDBACK_CHANNEL_ID;
@@ -74,6 +75,26 @@ const findSubmissionChannel = (guild: import('discord.js').Guild, configuredId: 
 
 const botMemberHasPermission = (guild: import('discord.js').Guild, permission: bigint) =>
   Boolean(guild.members.me?.permissions.has(permission));
+
+const findNamedTextChannel = (guild: import('discord.js').Guild, configuredId: string | undefined, names: string[]) => {
+  const configured = configuredId ? guild.channels.cache.get(configuredId) : undefined;
+  if (configured?.type === ChannelType.GuildText) return configured;
+  return guild.channels.cache.find((channel) => channel.type === ChannelType.GuildText && names.includes(channel.name.toLowerCase()));
+};
+
+const logTicketEvent = async (guild: import('discord.js').Guild, embed: EmbedBuilder) => {
+  const logChannel = findNamedTextChannel(guild, ticketLogChannelId, ['discord-logs', 'ticket-logs', 'logs', 'bot-logs']);
+  if (!logChannel) {
+    console.warn('Ticket event not logged: set TICKET_LOG_CHANNEL_ID in Render or create #discord-logs, #ticket-logs, #logs, or #bot-logs.');
+    return false;
+  }
+  await logChannel.send({ embeds: [embed] });
+  return true;
+};
+
+const ticketLogEmbed = (title: string, color: number, fields: { name: string; value: string; inline?: boolean }[]) =>
+  new EmbedBuilder().setColor(color).setTitle(title).addFields(fields).setTimestamp().setFooter({ text: 'NestMate · GuildNest audit log' });
+
 
 const ticketPanelRow = (categoryId?: string) => new ActionRowBuilder<ButtonBuilder>().addComponents(
   new ButtonBuilder()
@@ -140,6 +161,24 @@ client.on(Events.InteractionCreate, async (interaction) => {
           content: '**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — build the server layout and support panel\n`/sync` — check and safely restore missing configured items\n`/ticket-panel` — post a support panel in a chosen category\n`/community-panel` — post Bug Reports, Suggestions, and Feedback buttons\n\nGuildNest is being built in stages.',
           flags: MessageFlags.Ephemeral,
         });
+        return;
+      }
+
+      if (interaction.commandName === 'post-update') {
+        const guild = interaction.guild;
+        if (!guild || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+          await interaction.reply({ content: 'Run this in your server with Manage Server permission.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        const title = interaction.options.getString('title', true).trim();
+        const details = interaction.options.getString('message', true).trim();
+        const destination = findNamedTextChannel(guild, updatesChannelId, ['updates', 'guildnest-updates', 'bot-updates']);
+        if (!destination) {
+          await interaction.reply({ content: 'I could not find #updates. Run /setup or create #updates, then try again. You can also set UPDATES_CHANNEL_ID in Render.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        await destination.send({ embeds: [new EmbedBuilder().setColor(0xF1C40F).setTitle(title.slice(0, 256)).setDescription(details.slice(0, 4000)).addFields({ name: 'Posted by', value: '<@' + interaction.user.id + '>' }).setTimestamp().setFooter({ text: 'GuildNest official update' })] });
+        await interaction.reply({ content: '✅ Update published in <#' + destination.id + '>.', flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -616,6 +655,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
           .setTimestamp()],
         components: [ticketControls()],
       });
+      await logTicketEvent(guild, ticketLogEmbed('🎫 Ticket Opened', 0x5865F2, [
+        { name: 'Ticket', value: '<#' + ticketChannel.id + '>', inline: true },
+        { name: 'Opened by', value: '<@' + interaction.user.id + '>', inline: true },
+        { name: 'Ticket category', value: ticketChannel.parent ? '<#' + ticketChannel.parent.id + '>' : 'No category', inline: true },
+      ]));
       await interaction.reply({ content: `Your private ticket is ready: <#${ticketChannel.id}>`, flags: MessageFlags.Ephemeral });
       return;
     }
@@ -645,6 +689,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         components: [ticketControls(true)],
       });
       await channel.send(`🙋 <@${interaction.user.id}> has claimed this ticket.`);
+      await logTicketEvent(guild, ticketLogEmbed('🙋 Ticket Claimed', 0x3498DB, [
+        { name: 'Ticket', value: '<#' + channel.id + '>', inline: true },
+        { name: 'Claimed by', value: '<@' + interaction.user.id + '>', inline: true },
+        { name: 'Owner', value: '<@' + ownerId + '>', inline: true },
+      ]));
       return;
     }
 
@@ -663,12 +712,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await channel.permissionOverwrites.edit(ownerId, { SendMessages: true, ViewChannel: true, ReadMessageHistory: true });
         await channel.send(`🔓 Ticket reopened by <@${interaction.user.id}>. The owner can reply here again.`);
         await interaction.editReply({ components: [ticketControls(false, false)] });
-        if (ticketLogChannelId) {
-          const logChannel = guild.channels.cache.get(ticketLogChannelId);
-          if (logChannel?.isTextBased() && 'send' in logChannel) {
-            await logChannel.send(`🔓 Ticket ${channel.name} reopened by ${interaction.user.tag}. Channel: <#${channel.id}>; owner: <@${ownerId}>.`).catch(() => undefined);
-          }
-        }
+        await logTicketEvent(guild, ticketLogEmbed('🔓 Ticket Reopened', 0x2ECC71, [
+          { name: 'Ticket', value: '<#' + channel.id + '>', inline: true },
+          { name: 'Reopened by', value: '<@' + interaction.user.id + '>', inline: true },
+          { name: 'Owner', value: '<@' + ownerId + '>', inline: true },
+        ]));
         return;
     }
 
@@ -690,12 +738,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await channel.send(`🔒 Ticket closed by <@${interaction.user.id}>. This ticket is kept for staff reference; support staff can reopen it using the button below.`);
       await interaction.editReply({ components: [ticketControls(false, true)] });
 
-      if (ticketLogChannelId) {
-        const logChannel = guild.channels.cache.get(ticketLogChannelId);
-        if (logChannel?.isTextBased() && 'send' in logChannel) {
-          await logChannel.send(`🔒 Ticket ${channel.name} closed by ${interaction.user.tag}. Channel: <#${channel.id}>; owner: <@${ownerId}>.`).catch(() => undefined);
-        }
-      }
+      await logTicketEvent(guild, ticketLogEmbed('🔒 Ticket Closed', 0xED4245, [
+        { name: 'Ticket', value: '<#' + channel.id + '>', inline: true },
+        { name: 'Closed by', value: '<@' + interaction.user.id + '>', inline: true },
+        { name: 'Owner', value: '<@' + ownerId + '>', inline: true },
+      ]));
     }
   } catch (error) {
     console.error('Interaction handler failed:', error instanceof Error ? (error.stack ?? error.message) : error);

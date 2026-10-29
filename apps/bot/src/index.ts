@@ -158,7 +158,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'help') {
         await interaction.reply({
-          content: '**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — build the server layout and support panel\n`/sync` — check and safely restore missing configured items\n`/ticket-panel` — post a support panel in a chosen category\n`/community-panel` — post Bug Reports, Suggestions, and Feedback buttons\n\nGuildNest is being built in stages.',
+          content: '**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — build the server layout and support panel\n`/sync` — check and safely restore missing configured items\n`/ticket-panel` — post a support panel in a chosen category\n`/community-panel` — post Bug Reports, Suggestions, and Feedback buttons\n`/post-update` — publish an announcement to #updates\n\nGuildNest is being built in stages.',
           flags: MessageFlags.Ephemeral,
         });
         return;

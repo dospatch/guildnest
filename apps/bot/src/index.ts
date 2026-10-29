@@ -355,7 +355,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
           await interaction.reply({ content: 'Use this command in a server text channel.', flags: MessageFlags.Ephemeral });
           return;
         }
+
+        // Acknowledge immediately so Discord does not time out while the panel message is being sent.
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const category = interaction.options.getChannel('category', true, [ChannelType.GuildCategory]);
+        const botMember = interaction.guild.members.me;
+        if (!botMember?.permissions.has(PermissionFlagsBits.SendMessages) ||
+            !botMember.permissions.has(PermissionFlagsBits.EmbedLinks) ||
+            !botMember.permissions.has(PermissionFlagsBits.ViewChannel)) {
+          await interaction.editReply('I need **View Channel**, **Send Messages**, and **Embed Links** permissions in the channel where you run this command.');
+          return;
+        }
+
         await interaction.channel.send({
           embeds: [new EmbedBuilder()
             .setColor(0x5865F2)
@@ -364,7 +375,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             .setFooter({ text: 'Powered by NestMate · GuildNest' })],
           components: [ticketPanelRow(category.id)],
         });
-        await interaction.reply({ content: 'Support ticket panel posted in this channel.', flags: MessageFlags.Ephemeral });
+        await interaction.editReply('✅ Support ticket panel posted in this channel.');
         return;
       }
     }

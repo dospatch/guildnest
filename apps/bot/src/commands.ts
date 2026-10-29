@@ -21,6 +21,12 @@ export const commands = [
     .addAttachmentOption((option) => option.setName('image').setDescription('Optional screenshot or image to display on the panel').setRequired(false))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder()
+    .setName('post-update')
+    .setDescription('Publish an official announcement to the GuildNest updates channel.')
+    .addStringOption((option) => option.setName('title').setDescription('Short update title').setMaxLength(256).setRequired(true))
+    .addStringOption((option) => option.setName('message').setDescription('Details of the update').setMaxLength(4000).setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
     .setName('ticket-panel')
     .setDescription('Post a ticket panel that routes new tickets into a chosen category.')
     .addChannelOption((option) =>

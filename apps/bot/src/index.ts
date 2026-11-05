@@ -67,19 +67,34 @@ const communityModal = (kind: 'bug' | 'suggestion' | 'feedback') => {
     );
 };
 
-const findSubmissionChannel = (guild: import('discord.js').Guild, configuredId: string | undefined, names: string[]) => {
+const findSubmissionChannel = (
+  guild: import('discord.js').Guild,
+  configuredId: string | undefined,
+  names: string[],
+): import('discord.js').TextChannel | undefined => {
   const configured = configuredId ? guild.channels.cache.get(configuredId) : undefined;
-  if (configured?.isTextBased() && 'send' in configured) return configured;
-  return guild.channels.cache.find((channel) => channel.type === ChannelType.GuildText && names.includes(channel.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')));
+  if (configured?.type === ChannelType.GuildText) return configured;
+  return guild.channels.cache.find(
+    (channel): channel is import('discord.js').TextChannel =>
+      channel.type === ChannelType.GuildText &&
+      names.includes(channel.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')),
+  );
 };
 
 const botMemberHasPermission = (guild: import('discord.js').Guild, permission: bigint) =>
   Boolean(guild.members.me?.permissions.has(permission));
 
-const findNamedTextChannel = (guild: import('discord.js').Guild, configuredId: string | undefined, names: string[]) => {
+const findNamedTextChannel = (
+  guild: import('discord.js').Guild,
+  configuredId: string | undefined,
+  names: string[],
+): import('discord.js').TextChannel | undefined => {
   const configured = configuredId ? guild.channels.cache.get(configuredId) : undefined;
   if (configured?.type === ChannelType.GuildText) return configured;
-  return guild.channels.cache.find((channel) => channel.type === ChannelType.GuildText && names.includes(channel.name.toLowerCase()));
+  return guild.channels.cache.find(
+    (channel): channel is import('discord.js').TextChannel =>
+      channel.type === ChannelType.GuildText && names.includes(channel.name.toLowerCase()),
+  );
 };
 
 const logTicketEvent = async (guild: import('discord.js').Guild, embed: EmbedBuilder) => {

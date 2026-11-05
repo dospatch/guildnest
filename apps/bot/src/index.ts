@@ -153,6 +153,22 @@ client.on(Events.Error, (error) => {
   console.error('Discord client error:', error.message);
 });
 
+client.on(Events.ShardDisconnect, (closeEvent, shardId) => {
+  console.warn(`Discord Gateway shard ${shardId} disconnected (code ${closeEvent.code}). discord.js will manage reconnection.`);
+});
+
+client.on(Events.ShardReconnecting, (shardId) => {
+  console.warn(`Discord Gateway shard ${shardId} is reconnecting.`);
+});
+
+client.on(Events.ShardResume, (replayedEvents, shardId) => {
+  console.log(`Discord Gateway shard ${shardId} resumed; replayed ${replayedEvents} event(s).`);
+});
+
+client.on(Events.ShardError, (error, shardId) => {
+  console.error(`Discord Gateway shard ${shardId} error:`, error);
+});
+
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isChatInputCommand()) {

@@ -27,11 +27,11 @@ async function discord(env: Env, method: string, path: string, data?: unknown) {
   return r.status === 204 ? null : r.json();
 }
 const ephemeral = (content: string, extra: Payload = {}) => json({ type: 4, data: { content, flags: EPHEMERAL, ...extra } });
-function deferred(i: Payload, ctx: ExecutionContext, work: () => Promise<string | void>) {
+function deferred(i: Payload, ctx: ExecutionContext, work: () => Promise<string | Payload | void>) {
   ctx.waitUntil((async () => {
     try {
       const content = await work();
-      if (content !== undefined) await fetch(API + "/webhooks/" + i.application_id + "/" + i.token + "/messages/@original", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ content }) });
+      if (content !== undefined) await fetch(API + "/webhooks/" + i.application_id + "/" + i.token + "/messages/@original", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(typeof content === "string" ? { content } : content) });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       await fetch(API + "/webhooks/" + i.application_id + "/" + i.token + "/messages/@original", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ content: "NestMate could not finish this action: " + message.slice(0, 600) }) }).catch(() => undefined);
@@ -138,7 +138,7 @@ async function runCommand(env: Env, i: Payload, ctx: ExecutionContext): Promise<
       ...rolesExpected.filter((n) => !roleList.some((r) => r.name.toLowerCase() === n.toLowerCase())).map((n) => "• Role: " + n)
     ];
     if (!missing.length) return "GuildNest sync check complete. All configured starter categories, channels, and roles are present. Nothing was changed.";
-    return "**GuildNest Sync Check**\nI found " + missing.length + " missing configured item(s):\n" + missing.join("\n") + "\n\nNothing has been changed. Use /setup to safely create missing items; existing items are kept.";
+    return { content: "**GuildNest Sync Check**\nI found " + missing.length + " missing configured item(s):\n" + missing.join("\n") + "\n\nNothing has been changed. Press Restore Missing Items to recreate only these missing items.", components: [{ type: 1, components: [button("guildnest:sync:restore", "Restore Missing Items", 3, "🔄")] }] };
   });
   return ephemeral("Unknown command.");
 }
@@ -172,6 +172,42 @@ async function runComponent(env: Env, i: Payload, ctx: ExecutionContext): Promis
   if (id === "guildnest:community:vote") return deferred(i, ctx, async () => {
     await discord(env, "PUT", "/channels/" + i.channel_id + "/messages/" + i.message.id + "/reactions/%F0%9F%91%8D/@me");
     return "Your vote has been recorded.";
+  });
+  if (id === "guildnest:sync:restore") return deferred(i, ctx, async () => {
+    if (!guild || !hasPermission(i.member?.permissions, 32n)) return "Only a server manager can restore GuildNest items.";
+    const [list, roleList] = await Promise.all([getChannels(env, guild), getRoles(env, guild)]);
+    const made: string[] = [];
+    const ensureCategory = async (name: string) => {
+      const old = list.find((c) => c.type === 4 && c.name === name);
+      if (old) return old.id;
+      const created = await discord(env, "POST", "/guilds/" + guild + "/channels", { name, type: 4, reason: "GuildNest safe sync restoration" });
+      list.push(created); made.push("category " + name); return created.id;
+    };
+    const info = await ensureCategory("INFORMATION"), community = await ensureCategory("COMMUNITY"), support = await ensureCategory("SUPPORT");
+    const parents: Payload = { INFORMATION: info, COMMUNITY: community, SUPPORT: support };
+    const expected = [
+      ["welcome", "INFORMATION", "Welcome to the community. Read the rules and introduce yourself."],
+      ["rules", "INFORMATION", "Community rules and expectations."],
+      ["announcements", "INFORMATION", "Official community announcements."],
+      ["updates", "INFORMATION", "GuildNest bot updates, new features, fixes, and service notices."],
+      ["general", "COMMUNITY", "General community conversation."],
+      ["introductions", "COMMUNITY", "Say hello and introduce yourself."],
+      ["support-tickets", "SUPPORT", "Open a private support ticket using the panel below."]
+    ];
+    for (const [name, category, topic] of expected) {
+      if (!list.some((c) => c.type === 0 && c.name === name)) {
+        await discord(env, "POST", "/guilds/" + guild + "/channels", { name, type: 0, parent_id: parents[category], topic, reason: "GuildNest safe sync restoration" });
+        made.push("#" + name);
+      }
+    }
+    const expectedRoles: [string, number][] = [["GuildNest Moderator", 0x3498db], ["Support Team", 0x2ecc71], ["Community Member", 0x95a5a6], ["GuildNest Updates", 0xf1c40f]];
+    for (const [name, color] of expectedRoles) {
+      if (!roleList.some((r) => r.name.toLowerCase() === name.toLowerCase())) {
+        await discord(env, "POST", "/guilds/" + guild + "/roles", { name, color, reason: "GuildNest safe sync restoration" });
+        made.push("role " + name);
+      }
+    }
+    return made.length ? "GuildNest safe sync finished. Restored:\n" + made.map((x) => "• " + x).join("\n") + "\n\nNo existing channels or roles were deleted or changed." : "Everything was already present; nothing needed to be restored.";
   });
   if (id.startsWith("guildnest:ticket:")) return deferred(i, ctx, async () => {
     if (!guild) return "Tickets can only be used inside a server.";

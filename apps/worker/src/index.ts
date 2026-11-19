@@ -156,11 +156,13 @@ async function runComponent(env: Env, i: Payload, ctx: ExecutionContext): Promis
   }
   if (id.startsWith("guildnest:community:submit:")) return deferred(i, ctx, async () => {
     if (!guild) return "Submit this form inside a server.";
-    const kind = id.split(":")[3], cfg: Payload = {
+    const kind = id.split(":")[3];
+    const configs: Payload = {
       bug: { id: env.BUG_REPORTS_CHANNEL_ID, names: ["bug-reports", "bugs"], label: "Bug Report", color: 0xed4245 },
       suggestion: { id: env.SUGGESTIONS_CHANNEL_ID, names: ["suggestions", "ideas"], label: "Suggestion", color: 0x57f287 },
       feedback: { id: env.FEEDBACK_CHANNEL_ID, names: ["feedback", "general-feedback"], label: "General Feedback", color: 0x5865f2 }
-    }[kind];
+    };
+    const cfg: Payload = configs[kind];
     const list = await getChannels(env, guild), target = findChannel(list, cfg.names, cfg.id);
     if (!target) return "Could not find the submission channel. Create #" + cfg.names[0] + " or configure its channel ID.";
     const all = (i.data.components ?? []).flatMap((row: Payload) => row.components ?? []);

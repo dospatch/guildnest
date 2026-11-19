@@ -170,6 +170,8 @@ async function runComponent(env: Env, i: Payload, ctx: ExecutionContext): Promis
     return "Your " + cfg.label.toLowerCase() + " was sent to <#" + target.id + ">.";
   });
   if (id === "guildnest:community:vote") return deferred(i, ctx, async () => {
+    const voters = await discord(env, "GET", "/channels/" + i.channel_id + "/messages/" + i.message.id + "/reactions/%F0%9F%91%8D?limit=100") as Payload[];
+    if (voters.some((user) => user.id === i.member.user.id)) return "You have already voted on this suggestion.";
     await discord(env, "PUT", "/channels/" + i.channel_id + "/messages/" + i.message.id + "/reactions/%F0%9F%91%8D/@me");
     return "Your vote has been recorded.";
   });

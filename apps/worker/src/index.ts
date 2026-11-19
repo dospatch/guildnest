@@ -82,7 +82,64 @@ async function runCommand(env: Env, i: Payload, ctx: ExecutionContext): Promise<
     await send(env, i.channel_id, { embeds: [embed("GuildNest Support · " + category.name, "Press the button below to open a private support ticket. New tickets from this panel will be created under " + category.name + ".")], components: ticketPanel(category.id) });
     return "Support ticket panel posted.";
   });
-  if (name === "setup" || name === "sync") return ephemeral("This setup/sync action is being ported and will be enabled before the Gateway bot is retired.");
+  if (name === "setup") return deferred(i, ctx, async () => {
+    const [list, roleList] = await Promise.all([getChannels(env, guild), getRoles(env, guild)]);
+    const made: string[] = [], skipped: string[] = [];
+    const category = async (n: string) => {
+      const old = list.find((c) => c.type === 4 && c.name === n);
+      if (old) { skipped.push("category: " + n); return old.id; }
+      const item = await discord(env, "POST", "/guilds/" + guild + "/channels", { name: n, type: 4, reason: "GuildNest automatic server setup" });
+      list.push(item); made.push("category: " + n); return item.id;
+    };
+    const channel = async (n: string, parent: string, topic: string) => {
+      const old = list.find((c) => c.type === 0 && c.name === n);
+      if (old) { skipped.push("#" + n); return old; }
+      const item = await discord(env, "POST", "/guilds/" + guild + "/channels", { name: n, type: 0, parent_id: parent, topic, reason: "GuildNest automatic server setup" });
+      list.push(item); made.push("#" + n); return item;
+    };
+    const role = async (n: string, color: number) => {
+      const old = roleList.find((r) => r.name.toLowerCase() === n.toLowerCase());
+      if (old) { skipped.push("role: " + n); return old; }
+      const item = await discord(env, "POST", "/guilds/" + guild + "/roles", { name: n, color, reason: "GuildNest automatic server setup" });
+      roleList.push(item); made.push("role: " + n); return item;
+    };
+    const info = await category("INFORMATION"), community = await category("COMMUNITY"), support = await category("SUPPORT");
+    await channel("welcome", info, "Welcome to the community. Read the rules and introduce yourself.");
+    await channel("rules", info, "Community rules and expectations.");
+    await channel("announcements", info, "Official community announcements.");
+    const updates = await channel("updates", info, "GuildNest bot updates, new features, fixes, and service notices.");
+    await channel("general", community, "General community conversation.");
+    await channel("introductions", community, "Say hello and introduce yourself.");
+    const tickets = await channel("support-tickets", support, "Open a private support ticket using the panel below.");
+    await role("GuildNest Moderator", 0x3498db);
+    await role("Support Team", 0x2ecc71);
+    await role("Community Member", 0x95a5a6);
+    await role("GuildNest Updates", 0xf1c40f);
+    const recent = await discord(env, "GET", "/channels/" + updates.id + "/messages?limit=20") as Payload[];
+    if (!recent.some((m) => m.author?.bot && m.embeds?.some((e: Payload) => e.title === "GuildNest Updates"))) {
+      await send(env, updates.id, { embeds: [embed("GuildNest Updates", "Follow this channel for new features, fixes, maintenance notices, and important GuildNest news. Ask an administrator for the GuildNest Updates role to receive notifications.", 0xf1c40f)] });
+      made.push("#updates announcement panel");
+    } else skipped.push("#updates announcement panel (already exists)");
+    const ticketRecent = await discord(env, "GET", "/channels/" + tickets.id + "/messages?limit=20") as Payload[];
+    if (!ticketRecent.some((m) => m.author?.bot && m.embeds?.some((e: Payload) => e.title === "GuildNest Support"))) {
+      await send(env, tickets.id, { embeds: [embed("GuildNest Support", "Need help from the team? Press the button below to open a private support ticket. Please create one ticket per issue.")], components: ticketPanel() });
+      made.push("support ticket panel");
+    } else skipped.push("support ticket panel (already exists)");
+    return "**GuildNest setup finished.**\n\n**Created:** " + (made.length ? made.map((x) => "• " + x).join("\n") : "Nothing new was needed.") + "\n\n**Already existed:** " + (skipped.length ? skipped.map((x) => "• " + x).join("\n") : "None") + "\n\nNo existing channels or roles were deleted.";
+  });
+  if (name === "sync") return deferred(i, ctx, async () => {
+    const [list, roleList] = await Promise.all([getChannels(env, guild), getRoles(env, guild)]);
+    const cats = ["INFORMATION", "COMMUNITY", "SUPPORT"];
+    const channelsExpected = ["welcome", "rules", "announcements", "updates", "general", "introductions", "support-tickets"];
+    const rolesExpected = ["GuildNest Moderator", "Support Team", "Community Member", "GuildNest Updates"];
+    const missing = [
+      ...cats.filter((n) => !list.some((c) => c.type === 4 && c.name === n)).map((n) => "• Category: " + n),
+      ...channelsExpected.filter((n) => !list.some((c) => c.type === 0 && c.name === n)).map((n) => "• Channel: #" + n),
+      ...rolesExpected.filter((n) => !roleList.some((r) => r.name.toLowerCase() === n.toLowerCase())).map((n) => "• Role: " + n)
+    ];
+    if (!missing.length) return "GuildNest sync check complete. All configured starter categories, channels, and roles are present. Nothing was changed.";
+    return "**GuildNest Sync Check**\nI found " + missing.length + " missing configured item(s):\n" + missing.join("\n") + "\n\nNothing has been changed. Use /setup to safely create missing items; existing items are kept.";
+  });
   return ephemeral("Unknown command.");
 }
 async function runComponent(env: Env, i: Payload, ctx: ExecutionContext): Promise<Response> {
@@ -116,7 +173,70 @@ async function runComponent(env: Env, i: Payload, ctx: ExecutionContext): Promis
     await discord(env, "PUT", "/channels/" + i.channel_id + "/messages/" + i.message.id + "/reactions/%F0%9F%91%8D/@me");
     return "Your vote has been recorded.";
   });
-  if (id.startsWith("guildnest:ticket:")) return ephemeral("Ticket actions are being ported. The existing Gateway bot remains available until the full ticket workflow passes testing.");
+  if (id.startsWith("guildnest:ticket:")) return deferred(i, ctx, async () => {
+    if (!guild) return "Tickets can only be used inside a server.";
+    const channelId = i.channel_id as string;
+    if (id.startsWith("guildnest:ticket:create")) {
+      const [list, roleList] = await Promise.all([getChannels(env, guild), getRoles(env, guild)]);
+      const userId = i.member.user.id, username = i.member.user.username ?? "member";
+      const existing = list.find((c) => c.type === 0 && c.topic === "guildnest-ticket:" + userId + ":open");
+      if (existing) return "You already have an open ticket: <#" + existing.id + ">.";
+      const staff = env.TICKET_STAFF_ROLE_ID ? roleList.find((r) => r.id === env.TICKET_STAFF_ROLE_ID) : roleList.find((r) => r.name.toLowerCase() === "support team");
+      const requestedCategory = id.split(":")[3];
+      const parent = list.find((c) => c.id === requestedCategory && c.type === 4) ?? list.find((c) => c.id === env.TICKET_CATEGORY_ID && c.type === 4) ?? list.find((c) => c.type === 4 && c.name.toLowerCase() === "support");
+      const view = 1024n, sendPermission = 2048n, history = 65536n, attach = 32768n, embeds = 16384n, manageChannels = 16n;
+      const overwrites = [
+        { id: guild, type: 0, deny: String(view) },
+        { id: userId, type: 1, allow: String(view | sendPermission | history | attach | embeds) },
+        { id: env.DISCORD_APPLICATION_ID, type: 1, allow: String(view | sendPermission | history | manageChannels) },
+        ...(staff ? [{ id: staff.id, type: 0, allow: String(view | sendPermission | history) }] : [])
+      ];
+      const ticket = await discord(env, "POST", "/guilds/" + guild + "/channels", {
+        name: "ticket-" + username.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 80),
+        type: 0, topic: "guildnest-ticket:" + userId + ":open", ...(parent ? { parent_id: parent.id } : {}),
+        permission_overwrites: overwrites, reason: "GuildNest support ticket opened by " + username
+      });
+      await send(env, ticket.id, {
+        content: "Welcome <@" + userId + ">! Please describe what you need help with. Staff will respond here." + (staff ? " <@&" + staff.id + ">" : ""),
+        embeds: [embed("Support Ticket", "Use Claim ticket when a staff member starts helping. Use Close ticket when the issue is resolved.", 0x5865f2, [{ name: "Opened by", value: "<@" + userId + ">", inline: true }])],
+        components: ticketControls()
+      });
+      if (env.TICKET_LOG_CHANNEL_ID) await send(env, env.TICKET_LOG_CHANNEL_ID, { embeds: [embed("🎫 Ticket Opened", "Ticket <#" + ticket.id + "> opened by <@" + userId + ">.", 0x5865f2)] });
+      return "Your private ticket is ready: <#" + ticket.id + ">.";
+    }
+    const channel = await discord(env, "GET", "/channels/" + channelId) as Payload;
+    if (!String(channel.topic ?? "").startsWith("guildnest-ticket:")) return "This button only works inside a GuildNest ticket channel.";
+    const parts = String(channel.topic).split(":"), ownerId = parts[1], state = parts[2];
+    const roleList = await getRoles(env, guild);
+    const staff = env.TICKET_STAFF_ROLE_ID ? roleList.find((r) => r.id === env.TICKET_STAFF_ROLE_ID) : roleList.find((r) => r.name.toLowerCase() === "support team");
+    const isStaff = hasPermission(i.member?.permissions, 16n) || hasPermission(i.member?.permissions, 32n) || Boolean(staff && (i.member?.roles ?? []).includes(staff.id));
+    if (id.endsWith(":claim")) {
+      if (!isStaff) return "Only the support team can claim tickets.";
+      await discord(env, "PATCH", "/channels/" + channelId + "/messages/" + i.message.id, { components: ticketControls(true, false) });
+      await send(env, channelId, { content: "🙋 <@" + i.member.user.id + "> has claimed this ticket." });
+      return "Ticket claimed.";
+    }
+    if (id.endsWith(":reopen")) {
+      if (!isStaff) return "Only the support team can reopen tickets.";
+      if (state !== "closed") return "This ticket is already open.";
+      await discord(env, "PATCH", "/channels/" + channelId, { topic: "guildnest-ticket:" + ownerId + ":open", name: "ticket-" + channel.name.replace(/^closed-/, "").replace(/^ticket-/, "").slice(0, 85) });
+      await discord(env, "PUT", "/channels/" + channelId + "/permissions/" + ownerId, { type: 1, allow: String(1024n | 2048n | 65536n), deny: "0" });
+      await send(env, channelId, { content: "🔓 Ticket reopened by <@" + i.member.user.id + ">. The owner can reply again." });
+      await discord(env, "PATCH", "/channels/" + channelId + "/messages/" + i.message.id, { components: ticketControls(false, false) });
+      return "Ticket reopened.";
+    }
+    if (id.endsWith(":close")) {
+      if (i.member.user.id !== ownerId && !isStaff) return "Only the ticket owner or support staff can close this ticket.";
+      if (state === "closed") return "This ticket is already closed.";
+      await discord(env, "PATCH", "/channels/" + channelId, { topic: "guildnest-ticket:" + ownerId + ":closed", name: "closed-" + channel.name.replace(/^ticket-/, "").replace(/^closed-/, "").slice(0, 85) });
+      await discord(env, "PUT", "/channels/" + channelId + "/permissions/" + ownerId, { type: 1, allow: String(1024n | 65536n), deny: "2048" });
+      await send(env, channelId, { content: "🔒 Ticket closed by <@" + i.member.user.id + ">. Staff can reopen it using the button below." });
+      await discord(env, "PATCH", "/channels/" + channelId + "/messages/" + i.message.id, { components: ticketControls(false, true) });
+      if (env.TICKET_LOG_CHANNEL_ID) await send(env, env.TICKET_LOG_CHANNEL_ID, { embeds: [embed("🔒 Ticket Closed", "Ticket <#" + channelId + "> was closed by <@" + i.member.user.id + ">.", 0xed4245)] });
+      return "Ticket closed.";
+    }
+    return "Unknown ticket action.";
+  });
   return ephemeral("Unknown interaction.");
 }
 export default {

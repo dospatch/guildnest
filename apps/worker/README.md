@@ -18,7 +18,10 @@ npm run dev
 ```
 
 ## Register commands
-Use the existing apps/bot/src/register-commands.ts until the Worker command migration is complete.
+From the repository root, run `npm run register:worker-commands`. Set `DISCORD_BOT_TOKEN` and `DISCORD_APPLICATION_ID` in your shell first. Optionally set `DISCORD_GUILD_ID` to register commands in a test server.
+
+## GitHub auto-deploy (optional)
+Add repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The included GitHub Actions workflow deploys the Worker from `main` when those secrets are present. The website remains on Vercel.
 
 ## Deploy
 ```sh

@@ -274,8 +274,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
           return channel.id;
         };
         const ensureTextChannel = async (name: string, parent: string, topic: string) => {
-          const found = guild.channels.cache.find((channel) => channel.type === ChannelType.GuildText && channel.name === name);
-          if (found) { skipped.push(`#${name}`); return found; }
+          const found = guild.channels.cache.find(
+            (channel): channel is import('discord.js').TextChannel =>
+              channel.type === ChannelType.GuildText && channel.name === name,
+          );
+          if (found) { skipped.push(\`#\${name}\`); return found; }
           const channel = await guild.channels.create({
             name,
             type: ChannelType.GuildText,
@@ -283,7 +286,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
             topic,
             reason: 'GuildNest automatic server setup',
           });
-          created.push(`#${name}`);
+          if (channel.type !== ChannelType.GuildText) {
+            throw new Error(\`Expected #\${name} to be created as a text channel.\`);
+          }
+          created.push(\`#\${name}\`);
           return channel;
         };
         const ensureRole = async (name: string, color: number) => {

@@ -16,7 +16,8 @@
     "build:web": "npm run build --workspace @guildnest/web",
     "start:web": "npm run start --workspace @guildnest/web",
     "typecheck:web": "npm run typecheck --workspace @guildnest/web",
-    "start": "npm run register:commands && npm run start:bot"
+    "start": "npm run register:commands && npm run start:bot",
+    "typecheck:worker": "npm run typecheck --workspace @guildnest/worker"
   },
   "engines": {
     "node": ">=20"

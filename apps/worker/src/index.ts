@@ -4,6 +4,13 @@ interface Env {
   DISCORD_PUBLIC_KEY: string;
   DISCORD_BOT_TOKEN: string;
   DISCORD_APPLICATION_ID: string;
+  TICKET_CATEGORY_ID?: string;
+  TICKET_STAFF_ROLE_ID?: string;
+  TICKET_LOG_CHANNEL_ID?: string;
+  UPDATES_CHANNEL_ID?: string;
+  BUG_REPORTS_CHANNEL_ID?: string;
+  SUGGESTIONS_CHANNEL_ID?: string;
+  FEEDBACK_CHANNEL_ID?: string;
 }
 interface ExecutionContext { waitUntil(promise: Promise<unknown>): void }
 type Payload = Record<string, any>;

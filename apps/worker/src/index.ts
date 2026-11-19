@@ -70,7 +70,8 @@ async function runCommand(env: Env, i: Payload, ctx: ExecutionContext): Promise<
       { name: "💡 Suggestions", value: "Suggest features and improvements.", inline: true },
       { name: "💬 General Feedback", value: "Share feedback about GuildNest or the community.", inline: true }
     ]);
-    const image = option(i, "image")?.value;
+    const attachmentId = option(i, "image")?.value;
+    const image = attachmentId ? i.data.resolved?.attachments?.[attachmentId]?.url : undefined;
     if (image) (panel as Payload).image = { url: image };
     await send(env, i.channel_id, { embeds: [panel], components: communityPanel });
     return "GuildNest Community Center panel posted.";

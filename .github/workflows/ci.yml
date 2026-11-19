@@ -26,5 +26,7 @@ jobs:
         run: npm run typecheck:bot
       - name: Type-check dashboard
         run: npm run typecheck:web
+      - name: Type-check Cloudflare Worker
+        run: npm run typecheck:worker
       - name: Build dashboard
         run: npm run build:web

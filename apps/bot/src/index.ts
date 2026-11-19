@@ -256,7 +256,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             return 'Embed Links';
           });
           await interaction.reply({
-            content: `NestMate cannot run setup yet. Please grant the bot these server permissions and run `/setup` again: **${names.join(', ')}**.`,
+            content: `NestMate cannot run setup yet. Please grant the bot these server permissions and run /setup again: **${names.join(', ')}**.`,
             flags: MessageFlags.Ephemeral,
           });
           return;

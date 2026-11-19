@@ -256,7 +256,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             return 'Embed Links';
           });
           await interaction.reply({
-            content: `NestMate cannot run setup yet. Please grant the bot these server permissions and run \`/setup\` again: **${names.join(', ')}**.`,
+            content: `NestMate cannot run setup yet. Please grant the bot these server permissions and run `/setup` again: **${names.join(', ')}**.`,
             flags: MessageFlags.Ephemeral,
           });
           return;
@@ -278,7 +278,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             (channel): channel is import('discord.js').TextChannel =>
               channel.type === ChannelType.GuildText && channel.name === name,
           );
-          if (found) { skipped.push(\`#\${name}\`); return found; }
+          if (found) { skipped.push(`#${name}`); return found; }
           const channel = await guild.channels.create({
             name,
             type: ChannelType.GuildText,
@@ -287,9 +287,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
             reason: 'GuildNest automatic server setup',
           });
           if (channel.type !== ChannelType.GuildText) {
-            throw new Error(\`Expected #\${name} to be created as a text channel.\`);
+            throw new Error(`Expected #${name} to be created as a text channel.`);
           }
-          created.push(\`#\${name}\`);
+          created.push(`#${name}`);
           return channel;
         };
         const ensureRole = async (name: string, color: number) => {

@@ -194,8 +194,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'help') {
         await interaction.reply({
-          content: '**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — build the server layout and support panel
-`/staff-center` — create and secure the private Staff Center\n`/sync` — check and safely restore missing configured items\n`/ticket-panel` — post a support panel in a chosen category\n`/community-panel` — post Bug Reports, Suggestions, and Feedback buttons\n`/post-update` — publish an announcement to #updates\n\nGuildNest is being built in stages.',
+          content: `**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — build the server layout and support panel\n`/staff-center` — create and secure the private Staff Center\n`/sync` — check and safely restore missing configured items\n`/ticket-panel` — post a support panel in a chosen category\n`/community-panel` — post Bug Reports, Suggestions, and Feedback buttons\n`/post-update` — publish an announcement to #updates\n\nGuildNest is being built in stages.`,
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -221,8 +220,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (interaction.commandName === 'module') {
         await interaction.reply({
-          content: '**GuildNest Modules**\n\n🟢 **Core commands** — online\n🟢 **Support tickets** — panel, private channels, claim, close, and reopen\n🟢 **Community Center** — bug reports, suggestions, feedback forms, and suggestion voting\n🟢 **Server setup** — creates starter categories, channels, roles, and support panel\n🟢 **Private Staff Center** — staff channels, meeting room, and private log channels provisioned
-🟡 **Applications, moderation automation, and dashboard controls** — still being built',
+          content: `**GuildNest Modules**\n\n🟢 **Core commands** — online\n🟢 **Support tickets** — panel, private channels, claim, close, and reopen\n🟢 **Community Center** — bug reports, suggestions, feedback forms, and suggestion voting\n🟢 **Server setup** — creates starter categories, channels, roles, and support panel\n🟢 **Private Staff Center** — staff channels, meeting room, and private log channels provisioned\n🟡 **Applications, moderation automation, and dashboard controls** — still being built`,
           flags: MessageFlags.Ephemeral,
         });
         return;

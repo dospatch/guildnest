@@ -11,6 +11,6 @@ services:
       - key: DISCORD_BOT_TOKEN
         sync: false
       - key: DISCORD_APPLICATION_ID
-        value: '1564849911114240081'
+        value: '1573764106421403748'
       - key: DISCORD_GUILD_ID
         sync: false

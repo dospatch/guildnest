@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { createServer } from 'node:http';
 import {
   ActionRowBuilder,
+  ActivityType,
   ButtonBuilder,
   ButtonStyle,
   ChannelType,
@@ -161,7 +162,11 @@ server.listen(port, '0.0.0.0', () => {
 });
 
 client.once(Events.ClientReady, (readyClient) => {
-  console.log(`NestMate is online as ${readyClient.user.tag}.`);
+  readyClient.user.setPresence({
+    status: 'online',
+    activities: [{ name: 'GuildNest | /help', type: ActivityType.Watching }],
+  });
+  console.log(`NestMate is online as ${readyClient.user.tag} with presence enabled.`);
 });
 
 client.on(Events.Error, (error) => {

@@ -119,10 +119,48 @@ async function runCommand(env: Env, i: Payload, ctx: ExecutionContext): Promise<
     await channel("general", community, "General community conversation.");
     await channel("introductions", community, "Say hello and introduce yourself.");
     const tickets = await channel("support-tickets", support, "Open a private support ticket using the panel below.");
-    await role("GuildNest Moderator", 0x3498db);
-    await role("Support Team", 0x2ecc71);
+    const moderatorRole = await role("GuildNest Moderator", 0x3498db);
+    const supportRole = await role("Support Team", 0x2ecc71);
     await role("Community Member", 0x95a5a6);
     await role("GuildNest Updates", 0xf1c40f);
+
+    // Private staff-only areas: deny @everyone, allow support/moderator roles and NestMate.
+    const view = 1024n, sendMessages = 2048n, readHistory = 65536n, embedLinks = 16384n, attachFiles = 32768n, manageMessages = 8192n;
+    const staffAccess = String(view | sendMessages | readHistory | embedLinks | attachFiles | manageMessages);
+    const privateOverwrites = [
+      { id: guild, type: 0, deny: String(view), allow: "0" },
+      { id: moderatorRole.id, type: 0, allow: staffAccess, deny: "0" },
+      { id: supportRole.id, type: 0, allow: staffAccess, deny: "0" },
+      { id: env.DISCORD_APPLICATION_ID, type: 1, allow: String(view | sendMessages | readHistory | embedLinks | attachFiles), deny: "0" }
+    ];
+    const privateCategory = async (n: string) => {
+      const old = list.find((c) => c.type === 4 && c.name === n);
+      if (old) { skipped.push("category: " + n); return old.id; }
+      const item = await discord(env, "POST", "/guilds/" + guild + "/channels", { name: n, type: 4, permission_overwrites: privateOverwrites, reason: "GuildNest private staff area setup" });
+      list.push(item); made.push("category: " + n); return item.id;
+    };
+    const logs = await privateCategory("LOGS"), staffArea = await privateCategory("STAFF");
+    const privateTextChannel = async (n: string, parent: string, topic: string) => {
+      const old = list.find((c) => c.type === 0 && c.name === n);
+      if (old) { skipped.push("#" + n); return old; }
+      const item = await discord(env, "POST", "/guilds/" + guild + "/channels", { name: n, type: 0, parent_id: parent, topic, reason: "GuildNest private staff channel setup" });
+      list.push(item); made.push("#" + n); return item;
+    };
+    const privateVoiceChannel = async (n: string, parent: string) => {
+      const old = list.find((c) => c.type === 2 && c.name === n);
+      if (old) { skipped.push("voice: " + n); return old; }
+      const item = await discord(env, "POST", "/guilds/" + guild + "/channels", { name: n, type: 2, parent_id: parent, reason: "GuildNest private staff voice setup" });
+      list.push(item); made.push("voice: " + n); return item;
+    };
+    await privateTextChannel("ticket-logs", logs, "Private ticket events and future ticket transcripts.");
+    await privateTextChannel("moderation-logs", logs, "Private moderation action logs.");
+    await privateTextChannel("server-logs", logs, "Private member and server activity logs.");
+    await privateTextChannel("message-logs", logs, "Private message edit and deletion logs.");
+    await privateTextChannel("staff-chat", staffArea, "Private staff discussion.");
+    await privateTextChannel("staff-announcements", staffArea, "Private staff announcements.");
+    await privateTextChannel("staff-reports", staffArea, "Private staff reports and escalations.");
+    await privateTextChannel("staff-resources", staffArea, "Private staff guides, procedures, and resources.");
+    await privateVoiceChannel("Staff Meeting", staffArea);
     const recent = await discord(env, "GET", "/channels/" + updates.id + "/messages?limit=20") as Payload[];
     if (!recent.some((m) => m.author?.bot && m.embeds?.some((e: Payload) => e.title === "GuildNest Updates"))) {
       await send(env, updates.id, { embeds: [embed("GuildNest Updates", "Follow this channel for new features, fixes, maintenance notices, and important GuildNest news. Ask an administrator for the GuildNest Updates role to receive notifications.", 0xf1c40f)] });

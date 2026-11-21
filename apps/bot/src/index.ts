@@ -194,7 +194,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'help') {
         await interaction.reply({
-          content: '**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — build the server layout and support panel\n`/sync` — check and safely restore missing configured items\n`/ticket-panel` — post a support panel in a chosen category\n`/community-panel` — post Bug Reports, Suggestions, and Feedback buttons\n`/post-update` — publish an announcement to #updates\n\nGuildNest is being built in stages.',
+          content: '**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — build the server layout and support panel
+`/staff-center` — create and secure the private Staff Center\n`/sync` — check and safely restore missing configured items\n`/ticket-panel` — post a support panel in a chosen category\n`/community-panel` — post Bug Reports, Suggestions, and Feedback buttons\n`/post-update` — publish an announcement to #updates\n\nGuildNest is being built in stages.',
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -220,8 +221,93 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (interaction.commandName === 'module') {
         await interaction.reply({
-          content: '**GuildNest Modules**\n\n🟢 **Core commands** — online\n🟢 **Support tickets** — panel, private channels, claim, close, and reopen\n🟢 **Community Center** — bug reports, suggestions, feedback forms, and suggestion voting\n🟢 **Server setup** — creates starter categories, channels, roles, and support panel\n🟡 **Applications, moderation, and dashboard controls** — still being built',
+          content: '**GuildNest Modules**\n\n🟢 **Core commands** — online\n🟢 **Support tickets** — panel, private channels, claim, close, and reopen\n🟢 **Community Center** — bug reports, suggestions, feedback forms, and suggestion voting\n🟢 **Server setup** — creates starter categories, channels, roles, and support panel\n🟢 **Private Staff Center** — staff channels, meeting room, and private log channels provisioned
+🟡 **Applications, moderation automation, and dashboard controls** — still being built',
           flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (interaction.commandName === 'staff-center') {
+        const guild = interaction.guild;
+        if (!guild || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+          await interaction.reply({ content: 'Run this in your server with Manage Server permission.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        const botMember = guild.members.me;
+        const required = [PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.EmbedLinks];
+        const missing = required.filter((permission) => !botMember?.permissions.has(permission));
+        if (missing.length) {
+          await interaction.reply({ content: 'NestMate needs **Manage Channels, Manage Roles, View Channels, Send Messages, Read Message History, and Embed Links** to build the private Staff Center.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const moderatorRole = guild.roles.cache.find((role) => role.name.toLowerCase() === 'guildnest moderator')
+          ?? await guild.roles.create({ name: 'GuildNest Moderator', color: 0x3498DB, reason: 'GuildNest private Staff Center access' });
+        const supportRole = guild.roles.cache.find((role) => role.name.toLowerCase() === 'support team')
+          ?? await guild.roles.create({ name: 'Support Team', color: 0x2ECC71, reason: 'GuildNest private Staff Center access' });
+
+        const overwrites: OverwriteResolvable[] = [
+          { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+          { id: moderatorRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] },
+          { id: supportRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] },
+        ];
+        if (botMember) {
+          overwrites.push({ id: botMember.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
+        }
+
+        let staffCategory = guild.channels.cache.find((channel) => channel.type === ChannelType.GuildCategory && channel.name.toLowerCase() === 'staff');
+        if (!staffCategory) {
+          staffCategory = await guild.channels.create({ name: 'STAFF', type: ChannelType.GuildCategory, permissionOverwrites: overwrites, reason: 'Create private GuildNest Staff Center' });
+        } else {
+          await staffCategory.permissionOverwrites.set(overwrites, 'Secure GuildNest Staff Center category');
+        }
+
+        const created: string[] = [];
+        const secured: string[] = [];
+        const textChannels = [
+          ['staff-chat', 'Private staff coordination and day-to-day discussion.'],
+          ['staff-announcements', 'Internal staff announcements and operational notices.'],
+          ['staff-reports', 'Private staff reports and escalations.'],
+          ['staff-resources', 'Staff guides, procedures, and reference material.'],
+          ['ticket-logs', 'Private ticket lifecycle logs and future transcript archive.'],
+          ['moderation-logs', 'Private moderation action audit log.'],
+          ['server-logs', 'Private server and configuration event log.'],
+          ['message-logs', 'Private message event log; message content logging is not enabled by this setup.'],
+        ] as const;
+
+        for (const [name, topic] of textChannels) {
+          let channel = guild.channels.cache.find((item) => item.type === ChannelType.GuildText && item.name.toLowerCase() === name) as import('discord.js').TextChannel | undefined;
+          if (!channel) {
+            channel = await guild.channels.create({ name, type: ChannelType.GuildText, parent: staffCategory.id, topic, reason: 'Create private GuildNest Staff Center channel' });
+            created.push('#' + name);
+          } else {
+            await channel.setParent(staffCategory.id, { lockPermissions: true, reason: 'Move and secure GuildNest Staff Center channel' });
+            if (channel.topic !== topic) await channel.setTopic(topic, 'Update GuildNest Staff Center channel topic');
+            secured.push('#' + name);
+          }
+        }
+
+        let meetingChannel = guild.channels.cache.find((item) => item.type === ChannelType.GuildVoice && item.name.toLowerCase() === 'staff-meetings') as import('discord.js').VoiceChannel | undefined;
+        if (!meetingChannel) {
+          await guild.channels.create({ name: 'staff-meetings', type: ChannelType.GuildVoice, parent: staffCategory.id, reason: 'Create private GuildNest staff meeting room' });
+          created.push('🔊 staff-meetings');
+        } else {
+          await meetingChannel.setParent(staffCategory.id, { lockPermissions: true, reason: 'Move and secure GuildNest staff meeting room' });
+          secured.push('🔊 staff-meetings');
+        }
+
+        await interaction.editReply({
+          content: `**GuildNest Staff Center is ready.**
+
+**Created:** ${created.length ? created.map((item) => `• ${item}`).join('\n') : 'Nothing new was needed.'}
+
+**Secured/moved:** ${secured.length ? secured.map((item) => `• ${item}`).join('\n') : 'No existing channels needed changes.'}
+
+**Private access:** @everyone is denied access. GuildNest Moderator and Support Team can view the category. Assign those roles only to trusted staff.
+
+Note: log channels are provisioned; automated moderation/message event logging and ticket transcript delivery are separate features still to be implemented.`,
         });
         return;
       }

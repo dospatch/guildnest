@@ -8,6 +8,10 @@ export const commands = [
     .setName('module')
     .setDescription('View GuildNest modules and their planned status.'),
   new SlashCommandBuilder()
+    .setName('staff-center')
+    .setDescription('Create and secure the private GuildNest Staff Center.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
     .setName('setup')
     .setDescription('Build the standard GuildNest server layout and support ticket panel.')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),

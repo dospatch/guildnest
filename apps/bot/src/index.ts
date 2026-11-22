@@ -393,8 +393,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 ...(channel.type === ChannelType.GuildVoice ? { Connect: true, Speak: true } : {}),
               }, { reason: 'Grant approved GuildNest staff role access' });
             } catch (error) {
-              console.error(`[remodel] Failed staff role overwrite for role "${role.name}" (${role.id}) on channel "${channel.name}" (${channel.id}); bot highest role "${botHighestRole?.name ?? 'unknown'}" (${botHighestRole?.id ?? 'unknown'}):`, error);
-              throw new Error(`Discord rejected access for @${role.name} on #${channel.name}. Verify NestMate's Manage Roles permission and that the target role is below its highest role.`);
+              // A role-specific overwrite can be inaccessible on an individual
+              // channel even when the bot can access the channel itself. Keep the
+              // staff area private and continue the non-destructive remodel; do
+              // not fail the entire operation or weaken @everyone restrictions.
+              skippedStaffRoles.add(role.name);
+              console.error(`[remodel] Could not update staff role "${role.name}" (${role.id}) on channel "${channel.name}" (${channel.id}); leaving its existing overwrite unchanged. Bot highest role "${botHighestRole?.name ?? 'unknown'}" (${botHighestRole?.id ?? 'unknown'}):`, error);
+              continue;
             }
           }
           // NestMate inherits its channel access from the bot role's server permissions.

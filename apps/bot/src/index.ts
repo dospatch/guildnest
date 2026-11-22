@@ -366,11 +366,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const botHighestRole = guild.members.me?.roles.highest;
         const addStaffOverwrites = async (channel: import('discord.js').GuildBasedChannel) => {
           if (!('permissionOverwrites' in channel)) return;
-          try {
-            await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, { reason: 'Secure GuildNest staff-only area' });
-          } catch (error) {
-            console.error(`[remodel] Failed @everyone deny for channel "${channel.name}" (${channel.id}) in category "${channel.parent?.name ?? 'none'}" (${channel.parentId ?? 'none'}):`, error);
-            throw new Error(`Could not secure #${channel.name}: Discord rejected the @everyone View Channel deny. Check NestMate's Manage Roles permission and the channel/category access.`);
+          // Avoid a redundant Discord API overwrite write when @everyone is
+          // already explicitly denied. Existing channel-specific overwrites are
+          // preserved, and Discord can reject unnecessary writes with Missing Access.
+          const everyoneOverwrite = channel.permissionOverwrites.cache.get(guild.roles.everyone.id);
+          if (!everyoneOverwrite?.deny.has(PermissionFlagsBits.ViewChannel)) {
+            try {
+              await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, { reason: 'Secure GuildNest staff-only area' });
+            } catch (error) {
+              console.error(`[remodel] Failed @everyone deny for channel "${channel.name}" (${channel.id}) in category "${channel.parent?.name ?? 'none'}" (${channel.parentId ?? 'none'}):`, error);
+              throw new Error(`Could not secure #${channel.name}: Discord rejected the @everyone View Channel deny. Check NestMate's Manage Roles permission and the channel/category access.`);
+            }
           }
           for (const role of staffRoles.values()) {
             if (role.id === guild.roles.everyone.id) continue;

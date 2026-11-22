@@ -226,6 +226,203 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
+      if (interaction.commandName === 'remodel-preview') {
+        const guild = interaction.guild;
+        if (!guild || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+          await interaction.reply({ content: 'Run this in your server with Manage Server permission.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        await guild.channels.fetch();
+        await guild.roles.fetch();
+        const layout = [
+          { name: 'START HERE', channels: ['welcome', 'rules', 'announcements', 'updates'] },
+          { name: 'COMMUNITY', channels: ['general', 'introductions', 'media', 'events', 'suggestions', 'bug-reports', 'feedback'] },
+          { name: 'SUPPORT', channels: ['support-tickets', 'faq'] },
+          { name: 'STAFF', channels: ['staff-chat', 'staff-announcements', 'staff-reports', 'staff-resources', 'ticket-logs', 'moderation-logs', 'server-logs', 'message-logs', 'staff-meetings'] },
+        ];
+        const existingNames = new Set(guild.channels.cache.map((channel) => channel.name.toLowerCase()));
+        const missingCategories = layout.filter((item) => !guild.channels.cache.some((channel) => channel.type === ChannelType.GuildCategory && channel.name.toLowerCase() === item.name.toLowerCase())).map((item) => item.name);
+        const missingChannels = layout.flatMap((item) => item.channels.filter((name) => !existingNames.has(name)));
+        const rolesToCheck = ['Owner', 'Management', 'Manager', 'Admin', 'Administrator', 'Moderator', 'GuildNest Moderator', 'Support Team', 'Community Member'];
+        const rolesPresent = rolesToCheck.filter((name) => guild.roles.cache.some((role) => role.name.toLowerCase() === name.toLowerCase()));
+        const rolesMissing = ['GuildNest Moderator', 'Support Team', 'Community Member'].filter((name) => !guild.roles.cache.some((role) => role.name.toLowerCase() === name.toLowerCase()));
+        const botMember = guild.members.me;
+        const missingBotPerms = [
+          [PermissionFlagsBits.ManageChannels, 'Manage Channels'],
+          [PermissionFlagsBits.ManageRoles, 'Manage Roles'],
+          [PermissionFlagsBits.ViewChannel, 'View Channels'],
+          [PermissionFlagsBits.SendMessages, 'Send Messages'],
+          [PermissionFlagsBits.ReadMessageHistory, 'Read Message History'],
+        ] as const;
+        const missing = missingBotPerms.filter(([permission]) => !botMember?.permissions.has(permission)).map(([, name]) => name);
+        const currentChannelCount = guild.channels.cache.size;
+        await interaction.reply({
+          content: [
+            '**GuildNest full remodel preview**',
+            '',
+            `Server inventory: **${currentChannelCount} channels** and **${guild.roles.cache.size} roles**.`,
+            `Categories to add: **${missingCategories.length}** — ${missingCategories.join(', ') || 'none'}.`,
+            `Channels to add: **${missingChannels.length}** — ${missingChannels.join(', ') || 'none'}.`,
+            `Staff/member roles already present: ${rolesPresent.join(', ') || 'none detected'}.`,
+            `Support roles to add if missing: ${rolesMissing.join(', ') || 'none'}.`,
+            `Bot permission check: ${missing.length ? '**Missing:** ' + missing.join(', ') : '**Passed**.`,
+            '',
+            '**Permission plan:** keep existing channel-specific overwrites; add private STAFF denies for @everyone and access for recognized Owner, Management, Admin, Moderator, Support Team, and NestMate roles. Public categories remain public.',
+            '',
+            '**Safety:** existing channels and messages will not be deleted. Existing channels with matching names may be moved into the matching category without replacing their custom overwrites. No human members will be assigned new roles automatically.',
+            '',
+            missing.length ? 'NestMate cannot apply the remodel until the missing bot permissions are granted.' : 'If this plan looks right, run **/remodel-apply** to apply it.',
+          ].join('\\n'),
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (interaction.commandName === 'remodel-apply') {
+        const guild = interaction.guild;
+        if (!guild || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+          await interaction.reply({ content: 'Run this in your server with Manage Server permission.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        const botMember = guild.members.me;
+        const required = [PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory];
+        const missing = required.filter((permission) => !botMember?.permissions.has(permission));
+        if (missing.length) {
+          await interaction.reply({ content: 'NestMate is missing one or more required server permissions: Manage Channels, Manage Roles, View Channels, Send Messages, and Read Message History.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await guild.channels.fetch();
+        await guild.roles.fetch();
+        const layout = [
+          { name: 'START HERE', channels: [
+            ['welcome', 'Welcome and getting-started information.'],
+            ['rules', 'Community rules and expectations.'],
+            ['announcements', 'Official community announcements.'],
+            ['updates', 'GuildNest and NestMate product updates.'],
+          ] as const },
+          { name: 'COMMUNITY', channels: [
+            ['general', 'General community conversation.'],
+            ['introductions', 'Introduce yourself to the community.'],
+            ['media', 'Share screenshots, clips, and other media.'],
+            ['events', 'Community events and activities.'],
+            ['suggestions', 'Feature ideas and community suggestions.'],
+            ['bug-reports', 'Report issues and unexpected behavior.'],
+            ['feedback', 'General feedback for the GuildNest team.'],
+          ] as const },
+          { name: 'SUPPORT', channels: [
+            ['support-tickets', 'Open a private support ticket using the ticket panel.'],
+            ['faq', 'Frequently asked questions and support guidance.'],
+          ] as const },
+          { name: 'STAFF', channels: [
+            ['staff-chat', 'Private staff coordination and day-to-day discussion.'],
+            ['staff-announcements', 'Internal staff announcements and operational notices.'],
+            ['staff-reports', 'Private staff reports and escalations.'],
+            ['staff-resources', 'Staff guides, procedures, and reference material.'],
+            ['ticket-logs', 'Private ticket lifecycle logs and transcript archive destination.'],
+            ['moderation-logs', 'Private moderation action audit log.'],
+            ['server-logs', 'Private server and configuration event log.'],
+            ['message-logs', 'Private message event log; message content logging is not enabled.'],
+            ['staff-meetings', 'Private staff voice meeting room.'],
+          ] as const },
+        ];
+        const created: string[] = [];
+        const moved: string[] = [];
+        const secured: string[] = [];
+        const roleSpecs = [
+          { name: 'GuildNest Moderator', color: 0x3498DB },
+          { name: 'Support Team', color: 0x2ECC71 },
+          { name: 'Community Member', color: 0x95A5A6 },
+        ];
+        for (const spec of roleSpecs) {
+          if (!guild.roles.cache.some((role) => role.name.toLowerCase() === spec.name.toLowerCase())) {
+            await guild.roles.create({ name: spec.name, color: spec.color, reason: 'GuildNest non-destructive full server remodel' });
+            created.push('role @' + spec.name);
+          }
+        }
+
+        const categories = new Map<string, import('discord.js').CategoryChannel>();
+        for (const group of layout) {
+          let category = guild.channels.cache.find((channel) => channel.type === ChannelType.GuildCategory && channel.name.toLowerCase() === group.name.toLowerCase()) as import('discord.js').CategoryChannel | undefined;
+          if (!category) {
+            category = await guild.channels.create({ name: group.name, type: ChannelType.GuildCategory, reason: 'GuildNest full server remodel' });
+            created.push('category ' + group.name);
+          }
+          categories.set(group.name, category);
+        }
+
+        const staffCategory = categories.get('STAFF');
+        const staffRoleNames = ['owner', 'management', 'manager', 'admin', 'administrator', 'moderator', 'guildnest moderator', 'support team'];
+        const staffRoles = guild.roles.cache.filter((role) => staffRoleNames.includes(role.name.toLowerCase()));
+        const staffAllow = [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.EmbedLinks,
+          PermissionFlagsBits.AttachFiles,
+        ];
+        const addStaffOverwrites = async (channel: import('discord.js').GuildBasedChannel) => {
+          if (!('permissionOverwrites' in channel)) return;
+          await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, { reason: 'Secure GuildNest staff-only area' });
+          for (const role of staffRoles.values()) {
+            if (role.id !== guild.roles.everyone.id) {
+              await channel.permissionOverwrites.edit(role.id, {
+                ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true,
+                ...(channel.type === ChannelType.GuildVoice ? { Connect: true, Speak: true } : {}),
+              }, { reason: 'Grant approved GuildNest staff role access' });
+            }
+          }
+          if (botMember) {
+            await channel.permissionOverwrites.edit(botMember.id, {
+              ViewChannel: true, SendMessages: true, ReadMessageHistory: true, ManageChannels: true, ManageMessages: true, EmbedLinks: true, AttachFiles: true,
+              ...(channel.type === ChannelType.GuildVoice ? { Connect: true, Speak: true } : {}),
+            }, { reason: 'Keep NestMate access to private staff operations' });
+          }
+          secured.push(channel.name);
+        };
+
+        for (const group of layout) {
+          const parent = categories.get(group.name)!;
+          for (const [name, topic] of group.channels) {
+            const voice = name === 'staff-meetings';
+            let channel = guild.channels.cache.find((item) => item.name.toLowerCase() === name.toLowerCase() && (voice ? item.type === ChannelType.GuildVoice : item.type === ChannelType.GuildText));
+            if (!channel) {
+              channel = await guild.channels.create({
+                name,
+                type: voice ? ChannelType.GuildVoice : ChannelType.GuildText,
+                parent: parent.id,
+                ...(voice ? {} : { topic }),
+                reason: 'GuildNest full server remodel',
+              });
+              created.push((voice ? 'voice ' : '#') + name);
+            } else if (channel.parentId !== parent.id) {
+              await channel.setParent(parent.id, { lockPermissions: false, reason: 'Organize existing channel without replacing its custom permissions' });
+              moved.push('#' + name);
+            }
+            if (!voice && channel.type === ChannelType.GuildText && channel.topic !== topic) {
+              await channel.setTopic(topic, 'Update channel description during GuildNest remodel');
+            }
+            if (group.name === 'STAFF') await addStaffOverwrites(channel);
+          }
+        }
+
+        await interaction.editReply({
+          content: [
+            '**GuildNest remodel applied.**',
+            '',
+            `Created: ${created.length ? created.join(', ') : 'nothing new was needed'}.`,
+            `Reorganized existing channels: ${moved.length ? moved.join(', ') : 'none'}.`,
+            `Staff areas secured: ${secured.length ? secured.join(', ') : 'none'}.`,
+            '',
+            'Existing channels and messages were preserved. Existing custom channel overwrites were not bulk-replaced. NestMate created missing support/moderation/member roles but did not assign them to people.',
+            '',
+            'Next: assign trusted people to the appropriate staff roles, then run **/remodel-preview** again to audit the updated server.',
+          ].join('\\n'),
+        });
+        return;
+      }
+
       if (interaction.commandName === 'staff-center') {
         const guild = interaction.guild;
         if (!guild || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {

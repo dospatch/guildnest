@@ -265,7 +265,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             `Channels to add: **${missingChannels.length}** — ${missingChannels.join(', ') || 'none'}.`,
             `Staff/member roles already present: ${rolesPresent.join(', ') || 'none detected'}.`,
             `Support roles to add if missing: ${rolesMissing.join(', ') || 'none'}.`,
-            `Bot permission check: ${missing.length ? '**Missing:** ' + missing.join(', ') : '**Passed**.`,
+            `Bot permission check: ${missing.length ? '**Missing:** ' + missing.join(', ') : '**Passed**'}.`,
             '',
             '**Permission plan:** keep existing channel-specific overwrites; add private STAFF denies for @everyone and access for recognized Owner, Management, Admin, Moderator, Support Team, and NestMate roles. Public categories remain public.',
             '',

@@ -364,13 +364,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
         ];
         const addStaffOverwrites = async (channel: import('discord.js').GuildBasedChannel) => {
           if (!('permissionOverwrites' in channel)) return;
-          await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, { reason: 'Secure GuildNest staff-only area' });
+          try {
+            await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, { reason: 'Secure GuildNest staff-only area' });
+          } catch (error) {
+            console.error(`[remodel] Failed @everyone deny for channel "${channel.name}" (${channel.id}) in category "${channel.parent?.name ?? 'none'}" (${channel.parentId ?? 'none'}):`, error);
+            throw new Error(`Could not secure #${channel.name}: Discord rejected the @everyone View Channel deny. Check this channel/category's access and bot role hierarchy.`);
+          }
           for (const role of staffRoles.values()) {
             if (role.id !== guild.roles.everyone.id) {
-              await channel.permissionOverwrites.edit(role.id, {
-                ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true,
-                ...(channel.type === ChannelType.GuildVoice ? { Connect: true, Speak: true } : {}),
-              }, { reason: 'Grant approved GuildNest staff role access' });
+              try {
+                await channel.permissionOverwrites.edit(role.id, {
+                  ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true,
+                  ...(channel.type === ChannelType.GuildVoice ? { Connect: true, Speak: true } : {}),
+                }, { reason: 'Grant approved GuildNest staff role access' });
+              } catch (error) {
+                console.error(`[remodel] Failed staff role overwrite for role "${role.name}" (${role.id}) on channel "${channel.name}" (${channel.id}):`, error);
+                throw new Error(`Could not grant #${channel.name} to staff role @${role.name}. Check the bot role hierarchy and channel access.`);
+              }
             }
           }
           // NestMate inherits its channel access from the bot role's server permissions.

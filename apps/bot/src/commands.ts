@@ -20,6 +20,14 @@ export const commands = [
     .setDescription('Check for missing GuildNest channels and roles, then offer safe restoration.')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder()
+    .setName('remodel-preview')
+    .setDescription('Inspect your server and preview the complete safe GuildNest remodel.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
+    .setName('remodel-apply')
+    .setDescription('Apply the non-destructive GuildNest server remodel.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
     .setName('community-panel')
     .setDescription('Post the GuildNest Bug Reports, Suggestions, and Feedback panel.')
     .addAttachmentOption((option) => option.setName('image').setDescription('Optional screenshot or image to display on the panel').setRequired(false))

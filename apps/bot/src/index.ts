@@ -373,12 +373,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
               }, { reason: 'Grant approved GuildNest staff role access' });
             }
           }
-          if (botMember) {
-            await channel.permissionOverwrites.edit(botMember.id, {
-              ViewChannel: true, SendMessages: true, ReadMessageHistory: true, ManageChannels: true, ManageMessages: true, EmbedLinks: true, AttachFiles: true,
-              ...(channel.type === ChannelType.GuildVoice ? { Connect: true, Speak: true } : {}),
-            }, { reason: 'Keep NestMate access to private staff operations' });
-          }
+          // NestMate inherits its channel access from the bot role's server permissions.
+          // Avoid creating a self-member overwrite, which Discord may reject.
           secured.push(channel.name);
         };
 

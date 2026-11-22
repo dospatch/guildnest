@@ -362,25 +362,33 @@ client.on(Events.InteractionCreate, async (interaction) => {
           PermissionFlagsBits.EmbedLinks,
           PermissionFlagsBits.AttachFiles,
         ];
+        const skippedStaffRoles = new Set<string>();
+        const botHighestRole = guild.members.me?.roles.highest;
         const addStaffOverwrites = async (channel: import('discord.js').GuildBasedChannel) => {
           if (!('permissionOverwrites' in channel)) return;
           try {
             await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, { reason: 'Secure GuildNest staff-only area' });
           } catch (error) {
             console.error(`[remodel] Failed @everyone deny for channel "${channel.name}" (${channel.id}) in category "${channel.parent?.name ?? 'none'}" (${channel.parentId ?? 'none'}):`, error);
-            throw new Error(`Could not secure #${channel.name}: Discord rejected the @everyone View Channel deny. Check this channel/category's access and bot role hierarchy.`);
+            throw new Error(`Could not secure #${channel.name}: Discord rejected the @everyone View Channel deny. Check NestMate's Manage Roles permission and the channel/category access.`);
           }
           for (const role of staffRoles.values()) {
-            if (role.id !== guild.roles.everyone.id) {
-              try {
-                await channel.permissionOverwrites.edit(role.id, {
-                  ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true,
-                  ...(channel.type === ChannelType.GuildVoice ? { Connect: true, Speak: true } : {}),
-                }, { reason: 'Grant approved GuildNest staff role access' });
-              } catch (error) {
-                console.error(`[remodel] Failed staff role overwrite for role "${role.name}" (${role.id}) on channel "${channel.name}" (${channel.id}):`, error);
-                throw new Error(`Could not grant #${channel.name} to staff role @${role.name}. Check the bot role hierarchy and channel access.`);
-              }
+            if (role.id === guild.roles.everyone.id) continue;
+            // Discord does not let a bot manage permission overwrites for roles at
+            // or above its highest role. Skip those safely and report them at the end.
+            if (role.managed || !botHighestRole || role.position >= botHighestRole.position) {
+              skippedStaffRoles.add(role.name);
+              console.warn(`[remodel] Skipping staff role "${role.name}" (${role.id}); it is managed or not below NestMate's highest role "${botHighestRole?.name ?? 'unknown'}".`);
+              continue;
+            }
+            try {
+              await channel.permissionOverwrites.edit(role.id, {
+                ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true,
+                ...(channel.type === ChannelType.GuildVoice ? { Connect: true, Speak: true } : {}),
+              }, { reason: 'Grant approved GuildNest staff role access' });
+            } catch (error) {
+              console.error(`[remodel] Failed staff role overwrite for role "${role.name}" (${role.id}) on channel "${channel.name}" (${channel.id}); bot highest role "${botHighestRole?.name ?? 'unknown'}" (${botHighestRole?.id ?? 'unknown'}):`, error);
+              throw new Error(`Discord rejected access for @${role.name} on #${channel.name}. Verify NestMate's Manage Roles permission and that the target role is below its highest role.`);
             }
           }
           // NestMate inherits its channel access from the bot role's server permissions.

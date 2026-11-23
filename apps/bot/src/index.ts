@@ -597,7 +597,33 @@ client.on(Events.InteractionCreate, async (interaction) => {
         ];
         const existingNames = new Set(guild.channels.cache.map((channel) => channel.name.toLowerCase()));
         const missingCategories = layout.filter((item) => !guild.channels.cache.some((channel) => channel.type === ChannelType.GuildCategory && channel.name.toLowerCase() === item.name.toLowerCase())).map((item) => item.name);
-        const missingChannels = layout.flatMap((item) => item.channels.filter((name) => !existingNames.has(name)));
+        const expectedChannelNames = layout.flatMap((item) => item.channels);
+        const missingChannels = expectedChannelNames.filter((name) => !guild.channels.cache.some((channel) =>
+          channel.name.toLowerCase() === name.toLowerCase() &&
+          (['general-voice', 'support-voice', 'community-lounge'].includes(name)
+            ? channel.type === ChannelType.GuildVoice
+            : channel.type === ChannelType.GuildText),
+        ));
+        const groupedChannels = new Map<string, import('discord.js').GuildBasedChannel[]>();
+        for (const channel of guild.channels.cache.values()) {
+          const key = channel.name.toLowerCase();
+          const group = groupedChannels.get(key) ?? [];
+          group.push(channel);
+          groupedChannels.set(key, group);
+        }
+        const duplicateChannels = [...groupedChannels.entries()].filter(([, channels]) => channels.length > 1);
+        const groupedCategories = new Map<string, import('discord.js').CategoryChannel[]>();
+        for (const channel of guild.channels.cache.values()) {
+          if (channel.type !== ChannelType.GuildCategory) continue;
+          const key = channel.name.toLowerCase();
+          const group = groupedCategories.get(key) ?? [];
+          group.push(channel);
+          groupedCategories.set(key, group);
+        }
+        const duplicateCategories = [...groupedCategories.entries()].filter(([, categories]) => categories.length > 1);
+        const duplicateSummary = duplicateChannels.slice(0, 12).map(([name, channels]) =>
+          `#${name} (${channels.length} copies: ${channels.map((channel) => channel.parent?.name ?? 'no category').join(', ')})`,
+        );
         const rolesToCheck = ['Owner', 'Management', 'Manager', 'Admin', 'Administrator', 'Moderator', 'Developer', 'GuildNest Developer', 'GuildNest Moderator', 'Support Team', 'Community Member', 'GuildNest Updates'];
         const rolesPresent = rolesToCheck.filter((name) => guild.roles.cache.some((role) => role.name.toLowerCase() === name.toLowerCase()));
         const rolesMissing = ['GuildNest Developer', 'GuildNest Moderator', 'Support Team', 'Community Member', 'GuildNest Updates'].filter((name) => !guild.roles.cache.some((role) => role.name.toLowerCase() === name.toLowerCase()));
@@ -618,6 +644,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
             `Server inventory: **${currentChannelCount} channels** and **${guild.roles.cache.size} roles**.`,
             `Categories to add: **${missingCategories.length}** — ${missingCategories.join(', ') || 'none'}.`,
             `Channels to add: **${missingChannels.length}** — ${missingChannels.join(', ') || 'none'}.`,
+            `Duplicate channel names: **${duplicateChannels.length} groups** across **${duplicateChannels.reduce((sum, [, channels]) => sum + channels.length, 0)} channels**.`,
+            `Duplicate categories: **${duplicateCategories.length} groups**.`,
+            duplicateSummary.length ? `Duplicate examples: ${duplicateSummary.join('; ')}` : 'Duplicate examples: none detected.',
+            duplicateChannels.length > 12 ? `Additional duplicate groups not shown: ${duplicateChannels.length - 12}.` : '',
             `Staff/member roles already present: ${rolesPresent.join(', ') || 'none detected'}.`,
             `Support roles to add if missing: ${rolesMissing.join(', ') || 'none'}.`,
             `Bot permission check: ${missing.length ? '**Missing:** ' + missing.join(', ') : '**Passed**'}.`,

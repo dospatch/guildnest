@@ -15,7 +15,6 @@ on:
 
 permissions:
   contents: write
-  workflows: write
 
 concurrency:
   group: guildnest-discord-changelog
@@ -72,12 +71,21 @@ jobs:
           fi
 
           git fetch origin main --tags
-          marker="discord-changelog-last"
-          if [[ "$MODE" == "backfill" || ! -f .git/refs/tags/$marker && -z "$(git tag -l "$marker")" ]]; then
+          state_branch="changelog-state"
+          state_file=".guildnest-changelog-last"
+          last_sha=""
+          if git ls-remote --exit-code origin "refs/heads/$state_branch" >/dev/null 2>&1; then
+            git fetch origin "refs/heads/$state_branch:refs/remotes/origin/$state_branch"
+            last_sha="$(git show "origin/$state_branch:$state_file" 2>/dev/null || true)"
+          elif git rev-parse "discord-changelog-last^{commit}" >/dev/null 2>&1; then
+            # Migrate the previous tag-based marker without reposting old announcements.
+            last_sha="$(git rev-parse "discord-changelog-last^{commit}")"
+          fi
+
+          if [[ "$MODE" == "backfill" || -z "$last_sha" ]]; then
             range="$TARGET_SHA"
             mode_label="Complete commit history"
           else
-            last_sha="$(git rev-parse "$marker^{commit}")"
             if [[ "$last_sha" == "$TARGET_SHA" ]]; then
               echo "This deployment has already been announced."
               exit 0
@@ -202,5 +210,11 @@ jobs:
           print(f"Published one embedded changelog post for {total_entries} commits.")
           PY
 
-          git tag -f discord-changelog-last "$TARGET_SHA"
-          git push origin "refs/tags/discord-changelog-last" --force
+          # Store the last announced SHA on an isolated state branch. This avoids
+          # GitHub's special workflow-file permission restriction on tag updates.
+          git checkout --orphan "$state_branch"
+          git rm -rf . >/dev/null 2>&1 || true
+          printf '%s\n' "$TARGET_SHA" > "$state_file"
+          git add "$state_file"
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Update GuildNest changelog marker"
+          git push origin "HEAD:refs/heads/$state_branch" --force

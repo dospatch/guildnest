@@ -257,20 +257,70 @@ const guildNestWelcomeEmbed = (member?: import('discord.js').GuildMember, guild?
     const channel = guild?.channels.cache.find((item) => item.type === ChannelType.GuildText && item.name.toLowerCase() === name);
     return channel ? '<#' + channel.id + '>' : fallback;
   };
-  const body = (member ? 'Welcome <@' + member.id + '> to the official GuildNest community and partner space!\n\n' : 'Welcome to the official GuildNest community and partner space!\n\n') +
-    'GuildNest is a Discord management platform focused on helping server owners build, manage, automate, and improve their communities.\n\n' +
-    'We’re excited to work toward an integration with Modora, bringing our platforms closer together and creating more opportunities for Discord communities.\n\n' +
-    '🤝 **Partnership**\nWe’re looking forward to collaborating with Modora, exploring integration possibilities, and building something valuable for both communities.\n\nThank you for supporting GuildNest!';
+  const greeting = member ? '👋 **WELCOME ABOARD, <@' + member.id + '>!**' : '👋 **WELCOME ABOARD!**';
+  const description = [
+    '🌐 **WELCOME TO THE OFFICIAL GUILDNEST COMMUNITY!**',
+    '',
+    '🧩 *Build Better Servers • Smarter Management • Stronger Communities*',
+    '',
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    '',
+    greeting,
+    '',
+    'We’re glad you’re here! GuildNest is a Discord management platform built to help server owners build, manage, automate, and improve their communities. Explore the server, meet other members, share ideas, and discover what NestMate can do.',
+    '',
+    '🚀 **GET STARTED**',
+    '',
+    '📜 **READ THE RULES**',
+    'Start with ' + guide('rules', 'the rules channel') + ' and acknowledge the community guidelines.',
+    '',
+    '🧭 **EXPLORE THE COMMUNITY**',
+    'Visit ' + guide('announcements', 'announcements') + ' for news, ' + guide('updates', 'updates') + ' for platform changes, and ' + guide('general', 'general chat') + ' to meet the community.',
+    '',
+    '🧩 **DISCOVER GUILDNEST MODULES**',
+    'Explore server setup, tickets, welcome tools, community forms, and other GuildNest features. Ask questions in ' + guide('support-tickets', 'the support channel') + '.',
+    '',
+    '💡 **SHARE IDEAS & REPORT ISSUES**',
+    'Use the Community Center to submit suggestions, bug reports, feedback, support requests, or a private report. Submissions are routed to the appropriate team channel.',
+    '',
+    '👤 **INTRODUCE YOURSELF**',
+    'Say hello in ' + guide('introductions', 'introductions') + ' and use the About Me profile button to tell the community a little about yourself.',
+    '',
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    '',
+    '🤝 **OUR PARTNERSHIP WITH MODORA**',
+    'We’re excited to work toward an integration with Modora, explore new possibilities, and create more opportunities for Discord communities.',
+    '',
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    '',
+    '❤️ **OUR COMMUNITY EXPECTATIONS**',
+    '🤝 Respect every member and staff team.',
+    '💬 Keep conversations friendly and constructive.',
+    '🚫 No harassment, spam, or unnecessary drama.',
+    '🔒 Respect everyone’s privacy.',
+    '📌 Use the correct channels and approved support forms.',
+    '',
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    '',
+    '✨ **WHAT MAKES GUILDNEST SPECIAL?**',
+    '🧩 Powerful community management tools',
+    '⚙️ Automation and server organization',
+    '🎫 Support and ticket workflows',
+    '💡 Community feedback and suggestions',
+    '🤝 A growing community of server builders',
+    '',
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    '',
+    '🌐 **THANK YOU FOR BEING HERE!**',
+    'Explore the channels, share your ideas, and help us build a better experience for Discord communities.',
+    '',
+    '**GUILDNEST**',
+    '🧩 *Build Better Servers • Stronger Communities*',
+  ].join('\\n');
   return new EmbedBuilder()
     .setColor(0xFF8A3D)
     .setTitle('👋 Official Welcome')
-    .setDescription(body)
-    .addFields(
-      { name: '📘 Start Here', value: 'Rules: ' + guide('rules', 'Find the rules channel') + '\nIntroductions: ' + guide('introductions', 'Find introductions') + '\nGeneral: ' + guide('general', 'Find community chat') },
-      { name: '🧭 Community Guides', value: 'Announcements: ' + guide('announcements', 'Find announcements') + '\nSupport: ' + guide('support-tickets', 'Use the support panel') + '\nSuggestions: ' + guide('suggestions', 'Find suggestions') + '\nBug reports: ' + guide('bug-reports', 'Find bug reports') + '\nFeedback: ' + guide('feedback', 'Find feedback') },
-      { name: '✨ Get Involved', value: 'Share an introduction in ' + guide('introductions', 'the introductions channel') + '. Create your profile with **/about-me**. Find community events in ' + guide('events', 'the events channel') + ' and media in ' + guide('media', 'the media channel') + '.' },
-      ...(process.env.WELCOME_EXTRA_GUIDES ? [{ name: '📚 More Guides', value: process.env.WELCOME_EXTRA_GUIDES.split(',').map((name) => guide(name.trim().toLowerCase(), 'Find #' + name.trim())).join('\n').slice(0, 1024) }] : []),
-    )
+    .setDescription(description)
     .setFooter({ text: 'GuildNest · Official Welcome' });
 };
 

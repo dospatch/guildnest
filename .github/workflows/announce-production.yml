@@ -13,17 +13,19 @@ jobs:
     env:
       DISCORD_UPDATES_WEBHOOK_URL: ${{ secrets.DISCORD_UPDATES_WEBHOOK_URL }}
     steps:
-      - name: Confirm this is a production deployment
+      - name: Confirm this is a production application deployment
         id: production
         env:
           DEPLOYMENT_ENVIRONMENT: ${{ github.event.deployment.environment }}
         run: |
           environment="${DEPLOYMENT_ENVIRONMENT,,}"
-          if [[ "$environment" == *production* ]]; then
+          # Render names its production deployment environment after the service,
+          # while Vercel uses a Production environment. Ignore unrelated previews.
+          if [[ "$environment" == *production* || "$environment" == *guildnest-nestmate-6c3b* ]]; then
             echo "is_production=true" >> "$GITHUB_OUTPUT"
           else
             echo "is_production=false" >> "$GITHUB_OUTPUT"
-            echo "Preview deployment; no Discord announcement will be sent."
+            echo "Unrelated preview deployment; no Discord announcement will be sent."
           fi
 
       - name: Explain missing Discord webhook
@@ -33,19 +35,15 @@ jobs:
       - name: Publish release announcement to Discord
         if: steps.production.outputs.is_production == 'true' && env.DISCORD_UPDATES_WEBHOOK_URL != ''
         env:
-          DEPLOYMENT_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
           DEPLOYMENT_SHA: ${{ github.event.deployment.sha }}
         run: |
           short_sha="${DEPLOYMENT_SHA:0:7}"
-          deployment_url="$DEPLOYMENT_URL"
-          if [[ -z "$deployment_url" ]]; then
-            deployment_url="https://github.com/${GITHUB_REPOSITORY}/commit/${DEPLOYMENT_SHA}"
-          fi
+          website_url="https://guildnest-git-main-dospatchs-projects.vercel.app"
           payload="$(jq -n \
-            --arg title "GuildNest website update is live" \
-            --arg description "A verified production deployment has completed successfully." \
+            --arg title "GuildNest update is live" \
+            --arg description "A successful production deployment has completed. Open GuildNest to see the latest release." \
             --arg sha "$short_sha" \
-            --arg url "$deployment_url" \
+            --arg url "$website_url" \
             --arg commit "https://github.com/${GITHUB_REPOSITORY}/commit/${DEPLOYMENT_SHA}" \
             '{
               username: "GuildNest Releases",

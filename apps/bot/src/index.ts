@@ -262,7 +262,7 @@ const publishWelcomeLanding = async (guild: import('discord.js').Guild) => {
   const channel = findWelcomeChannel(guild);
   if (!channel) { console.warn('GuildNest welcome channel not found in ' + guild.name); return; }
   const recent = await channel.messages.fetch({ limit: 50 }).catch(() => null);
-  const existing = recent?.find((message) => message.author.id === client.user?.id && message.embeds.some((embed) => embed.title === '👋 Official Welcome'));
+  const existing = recent?.find((message) => message.author.id === client.user?.id && message.embeds.some((embed) => (embed.title === '👋 Official Welcome' || embed.title === 'GuildNest · Official Welcome')));
   if (existing) {
     await existing.edit({ embeds: [guildNestWelcomeEmbed()] });
     console.log('Updated GuildNest welcome page in #' + channel.name);

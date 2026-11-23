@@ -28,6 +28,14 @@ export const commands = [
     .setDescription('Apply the non-destructive GuildNest server remodel.')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder()
+    .setName('welcome-panel')
+    .setDescription('Publish the official GuildNest welcome message and channel guide.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
+    .setName('rules-panel')
+    .setDescription('Publish a rules acknowledgement panel in this channel.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
     .setName('community-panel')
     .setDescription('Post the GuildNest Bug Reports, Suggestions, and Feedback panel.')
     .addAttachmentOption((option) => option.setName('image').setDescription('Optional screenshot or image to display on the panel').setRequired(false))

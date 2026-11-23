@@ -10,7 +10,7 @@ on:
         options:
           - backfill
           - incremental
-        default: backfill
+        default: incremental
   deployment_status:
 
 permissions:
@@ -98,24 +98,42 @@ jobs:
           target = os.environ["TARGET_SHA"]
           mode_label = "Complete commit history" if os.environ["MODE"] == "backfill" else "New changes"
           lines = open("/tmp/changelog.txt", encoding="utf-8").read().splitlines()
-          entries = []
+          categories = [
+              ("Website & Dashboard", ("dashboard", "website", "web ", "web:", "oauth", "landing page", "module card", "sidebar")),
+              ("NestMate & Discord", ("bot", "nestmate", "discord", "ticket", "slash command", "server setup", "staff center", "gateway")),
+              ("Infrastructure & Deployments", ("deploy", "deployment", "render", "vercel", "cloudflare", "worker", "ci ", "workflow", "github actions", "health endpoint")),
+              ("Documentation & Maintenance", ("document", "readme", "gitignore", "typecheck", "typescript", "lint", "config", "diagnostic", "fix syntax", "format")),
+          ]
+          grouped = {}
+          category_order = [name for name, _ in categories] + ["Other improvements"]
           for line in lines:
-              parts = line.split("\x1f", 2)
+              parts = line.split("\\x1f", 2)
               if len(parts) != 3:
                   continue
               sha, date, subject = parts
-              short = sha[:7]
-              subject = subject.replace("@", "@\u200b")
-              entries.append(f"• **{date}** — {subject} ([{short}](https://github.com/{os.environ['GITHUB_REPOSITORY']}/commit/{sha}))")
+              lower = subject.lower()
+              category = next((name for name, terms in categories if any(term in lower for term in terms)), "Other improvements")
+              subject = subject.replace("@", "@\\u200b")
+              grouped.setdefault(category, []).append(
+                  f"• **{date}** — {subject} ([{sha[:7]}](https://github.com/{os.environ['GITHUB_REPOSITORY']}/commit/{sha}))"
+              )
           heading = "🏆 **GUILDNEST — OFFICIAL CHANGELOG**"
           chunks, current = [], []
-          current_len = len(heading) + 100
-          for entry in entries:
-              if current and current_len + len(entry) + 1 > 1750:
-                  chunks.append(current)
-                  current, current_len = [], len(heading) + 100
-              current.append(entry)
-              current_len += len(entry) + 1
+          current_len = len(heading) + 120
+          current_category = None
+          for category in category_order:
+              for entry in grouped.get(category, []):
+                  section = f"\\n**{category}**\\n" if category != current_category else ""
+                  if current and current_len + len(section) + len(entry) + 1 > 1750:
+                      chunks.append(current)
+                      current, current_len = [], len(heading) + 120
+                      section = f"\\n**{category}**\\n"
+                  if section:
+                      current.append(section.strip())
+                      current_len += len(section)
+                  current.append(entry)
+                  current_len += len(entry) + 1
+                  current_category = category
           if current:
               chunks.append(current)
 
@@ -152,7 +170,7 @@ jobs:
           summary = (
               f"{heading}\n✅ **History complete:** {len(entries):,} dated commit entries "
               f"published across {len(chunks)} message(s).\n"
-              f"**Order:** oldest to newest.\n"
+              f"**Format:** grouped by project area.\n"
               f"[View repository history](https://github.com/{os.environ['GITHUB_REPOSITORY']}/commits/main)"
           )
           send(summary)

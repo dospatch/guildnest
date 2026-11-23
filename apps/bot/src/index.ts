@@ -81,7 +81,7 @@ const moduleDetailEmbed = (moduleId: string) => {
 const communityPanel = () => new EmbedBuilder()
   .setColor(0x5865F2)
   .setTitle('GuildNest Community Center')
-  .setDescription('Choose the form that matches what you need. NestMate routes each submission to its matching team channel.')
+  .setDescription('Choose the form that matches what you need. Reports, bug reports, suggestions, feedback, and support requests are routed to their matching channels. Use the About Me button below to publish your member profile.')
   .addFields(
     { name: '🚩 Reports', value: 'Privately report a member or community concern to staff.', inline: true },
     { name: '🐛 Bug Reports', value: 'Report errors, broken commands, or unexpected behavior.', inline: true },
@@ -90,6 +90,20 @@ const communityPanel = () => new EmbedBuilder()
     { name: '🆘 Support', value: 'Send a support request to the support team.', inline: true },
   )
   .setFooter({ text: 'Powered by NestMate · GuildNest' });
+
+const suggestionPanelEmbed = () => new EmbedBuilder()
+  .setColor(0x57F287)
+  .setTitle('💡 GuildNest Suggestions')
+  .setDescription('Have an idea that could make GuildNest or this community better? Submit it below. Suggestions are routed to the suggestions channel for review and community voting.')
+  .addFields(
+    { name: 'How to suggest', value: 'Give your idea a clear title, explain how it would work, and tell us what problem it solves.' },
+    { name: 'Community voting', value: 'Members can vote on submitted ideas using the vote button attached to each suggestion.' },
+  )
+  .setFooter({ text: 'GuildNest · Community Ideas' });
+
+const aboutMePanelRow = () => new ActionRowBuilder<ButtonBuilder>().addComponents(
+  new ButtonBuilder().setCustomId('guildnest:about-me:open').setLabel('Create About Me').setEmoji('👤').setStyle(ButtonStyle.Primary),
+);
 
 const communityPanelRow = () => new ActionRowBuilder<ButtonBuilder>().addComponents(
   new ButtonBuilder().setCustomId('guildnest:community:report').setLabel('Report').setEmoji('🚩').setStyle(ButtonStyle.Danger),
@@ -909,8 +923,11 @@ Note: log channels are provisioned; automated moderation/message event logging a
         const panelEmbed = communityPanel();
         const image = interaction.options.getAttachment('image');
         if (image && image.contentType?.startsWith('image/')) panelEmbed.setImage(image.url);
-        await interaction.channel.send({ embeds: [panelEmbed], components: [communityPanelRow()] });
-        await interaction.reply({ content: image ? 'GuildNest Community Center panel posted with your image.' : 'GuildNest Community Center panel posted.', flags: MessageFlags.Ephemeral });
+        await interaction.channel.send({
+          embeds: [panelEmbed, suggestionPanelEmbed()],
+          components: [communityPanelRow(), aboutMePanelRow()],
+        });
+        await interaction.reply({ content: image ? 'GuildNest Community Center, suggestion, and About Me panels posted with your image.' : 'GuildNest Community Center, suggestion, and About Me panels posted.', flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -942,6 +959,11 @@ Note: log channels are provisioned; automated moderation/message event logging a
         await interaction.editReply('✅ Support ticket panel posted in this channel.');
         return;
       }
+    }
+
+    if (interaction.isButton() && interaction.customId === 'guildnest:about-me:open') {
+      await interaction.showModal(aboutMeModal());
+      return;
     }
 
     if (interaction.isModalSubmit() && interaction.customId === 'guildnest:about-me:submit') {

@@ -621,6 +621,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
           groupedCategories.set(key, group);
         }
         const duplicateCategories = [...groupedCategories.entries()].filter(([, categories]) => categories.length > 1);
+        // Known names from the pre-numbered GuildNest layout. These are audit
+        // candidates only: never delete or rename them automatically.
+        const legacyCategoryNames = ['START HERE', 'COMMUNITY', 'SUPPORT', 'staff'];
+        const legacyChannelNames = [
+          'rules', 'updates', 'staff-introductions', 'faq', 'about-us',
+          'general', 'media', 'events', 'support-tickets', 'staff-resources',
+          'ticket-logs', 'server-logs',
+        ];
+        const legacyCategories = guild.channels.cache
+          .filter((channel) => channel.type === ChannelType.GuildCategory && legacyCategoryNames.includes(channel.name))
+          .map((channel) => channel.name);
+        const legacyChannels = guild.channels.cache
+          .filter((channel) => channel.type !== ChannelType.GuildCategory && legacyChannelNames.includes(channel.name.toLowerCase()))
+          .map((channel) => `#${channel.name} (${channel.parent?.name ?? 'no category'})`);
         const duplicateSummary = duplicateChannels.slice(0, 12).map(([name, channels]) =>
           `#${name} (${channels.length} copies: ${channels.map((channel) => channel.parent?.name ?? 'no category').join(', ')})`,
         );
@@ -648,6 +662,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
             `Duplicate categories: **${duplicateCategories.length} groups**.`,
             duplicateSummary.length ? `Duplicate examples: ${duplicateSummary.join('; ')}` : 'Duplicate examples: none detected.',
             duplicateChannels.length > 12 ? `Additional duplicate groups not shown: ${duplicateChannels.length - 12}.` : '',
+            `Legacy categories to review (not deleted): ${legacyCategories.join(', ') || 'none detected'}.`,
+            `Legacy channels to review (not deleted): ${legacyChannels.join(', ') || 'none detected'}.`,
+            legacyCategories.length || legacyChannels.length ? '**Cleanup warning:** older layout items are still present. Do not run /remodel-apply until these have been reviewed.' : '',
             `Staff/member roles already present: ${rolesPresent.join(', ') || 'none detected'}.`,
             `Support roles to add if missing: ${rolesMissing.join(', ') || 'none'}.`,
             `Bot permission check: ${missing.length ? '**Missing:** ' + missing.join(', ') : '**Passed**'}.`,

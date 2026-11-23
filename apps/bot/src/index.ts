@@ -218,17 +218,18 @@ const guildNestWelcomeEmbed = (member?: import('discord.js').GuildMember, guild?
     const channel = guild?.channels.cache.find((item) => item.type === ChannelType.GuildText && item.name.toLowerCase() === name);
     return channel ? '<#' + channel.id + '>' : fallback;
   };
-  const body = (member ? 'Welcome <@' + member.id + '> to the official GuildNest community and partner space!\\n\\n' : 'Welcome to the official GuildNest community and partner space!\\n\\n') +
-    'GuildNest is a Discord management platform focused on helping server owners build, manage, automate, and improve their communities.\\n\\n' +
-    'We’re excited to work toward an integration with Modora, bringing our platforms closer together and creating more opportunities for Discord communities.\\n\\n' +
-    '🤝 **Partnership**\\nWe’re looking forward to collaborating with Modora, exploring integration possibilities, and building something valuable for both communities.\\n\\nThank you for supporting GuildNest!';
+  const body = (member ? 'Welcome <@' + member.id + '> to the official GuildNest community and partner space!\n\n' : 'Welcome to the official GuildNest community and partner space!\n\n') +
+    'GuildNest is a Discord management platform focused on helping server owners build, manage, automate, and improve their communities.\n\n' +
+    'We’re excited to work toward an integration with Modora, bringing our platforms closer together and creating more opportunities for Discord communities.\n\n' +
+    '🤝 **Partnership**\nWe’re looking forward to collaborating with Modora, exploring integration possibilities, and building something valuable for both communities.\n\nThank you for supporting GuildNest!';
   return new EmbedBuilder()
     .setColor(0xFF8A3D)
     .setTitle('GuildNest · Official Welcome')
     .setDescription(body)
     .addFields(
-      { name: '📘 Start Here', value: 'Rules: ' + guide('rules', 'Find the rules channel') + '\\nIntroductions: ' + guide('introductions', 'Find introductions') + '\\nGeneral: ' + guide('general', 'Find community chat') },
-      { name: '🧭 Community Guides', value: 'Announcements: ' + guide('announcements', 'Find announcements') + '\\nSupport: ' + guide('support-tickets', 'Use the support panel') + '\\nSuggestions: ' + guide('suggestions', 'Find suggestions') },
+      { name: '📘 Start Here', value: 'Rules: ' + guide('rules', 'Find the rules channel') + '\nIntroductions: ' + guide('introductions', 'Find introductions') + '\nGeneral: ' + guide('general', 'Find community chat') },
+      { name: '🧭 Community Guides', value: 'Announcements: ' + guide('announcements', 'Find announcements') + '\nSupport: ' + guide('support-tickets', 'Use the support panel') + '\nSuggestions: ' + guide('suggestions', 'Find suggestions') },
+      ...(process.env.WELCOME_EXTRA_GUIDES ? [{ name: '📚 More Guides', value: process.env.WELCOME_EXTRA_GUIDES.split(',').map((name) => guide(name.trim().toLowerCase(), 'Find #' + name.trim())).join('\n').slice(0, 1024) }] : []),
     )
     .setFooter({ text: 'GuildNest · Official Welcome' });
 };

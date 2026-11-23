@@ -59,7 +59,7 @@ jobs:
         if: steps.target.outputs.skip != 'true'
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_UPDATES_WEBHOOK_URL }}
-          CHANGELOG_ROLE_ID: ${{ vars.GUILDNEST_CHANGELOG_ROLE_ID }}
+          CHANGELOG_ROLE_ID: 1565169230549090384
           TARGET_SHA: ${{ steps.target.outputs.sha }}
           MODE: ${{ steps.target.outputs.mode }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

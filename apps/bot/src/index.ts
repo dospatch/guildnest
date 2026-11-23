@@ -243,7 +243,8 @@ const guildNestWelcomeEmbed = (member?: import('discord.js').GuildMember, guild?
     .setDescription(body)
     .addFields(
       { name: '📘 Start Here', value: 'Rules: ' + guide('rules', 'Find the rules channel') + '\nIntroductions: ' + guide('introductions', 'Find introductions') + '\nGeneral: ' + guide('general', 'Find community chat') },
-      { name: '🧭 Community Guides', value: 'Announcements: ' + guide('announcements', 'Find announcements') + '\nSupport: ' + guide('support-tickets', 'Use the support panel') + '\nSuggestions: ' + guide('suggestions', 'Find suggestions') },
+      { name: '🧭 Community Guides', value: 'Announcements: ' + guide('announcements', 'Find announcements') + '\nSupport: ' + guide('support-tickets', 'Use the support panel') + '\nSuggestions: ' + guide('suggestions', 'Find suggestions') + '\nBug reports: ' + guide('bug-reports', 'Find bug reports') + '\nFeedback: ' + guide('feedback', 'Find feedback') },
+      { name: '✨ Get Involved', value: 'Share an introduction in ' + guide('introductions', 'the introductions channel') + '. Create your profile with **/about-me**. Find community events in ' + guide('events', 'the events channel') + ' and media in ' + guide('media', 'the media channel') + '.' },
       ...(process.env.WELCOME_EXTRA_GUIDES ? [{ name: '📚 More Guides', value: process.env.WELCOME_EXTRA_GUIDES.split(',').map((name) => guide(name.trim().toLowerCase(), 'Find #' + name.trim())).join('\n').slice(0, 1024) }] : []),
     )
     .setFooter({ text: 'GuildNest · Official Welcome' });

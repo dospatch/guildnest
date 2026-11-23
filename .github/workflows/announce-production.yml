@@ -10,6 +10,8 @@ jobs:
   announce:
     if: github.event.deployment_status.state == 'success'
     runs-on: ubuntu-latest
+    env:
+      DISCORD_UPDATES_WEBHOOK_URL: ${{ secrets.DISCORD_UPDATES_WEBHOOK_URL }}
     steps:
       - name: Confirm this is a production deployment
         id: production
@@ -26,14 +28,11 @@ jobs:
 
       - name: Explain missing Discord webhook
         if: steps.production.outputs.is_production == 'true' && env.DISCORD_UPDATES_WEBHOOK_URL == ''
-        env:
-          DISCORD_UPDATES_WEBHOOK_URL: ${{ secrets.DISCORD_UPDATES_WEBHOOK_URL }}
         run: echo "Production deployment succeeded, but no Discord announcement was sent. Add the DISCORD_UPDATES_WEBHOOK_URL repository secret."
 
       - name: Publish release announcement to Discord
         if: steps.production.outputs.is_production == 'true' && env.DISCORD_UPDATES_WEBHOOK_URL != ''
         env:
-          DISCORD_UPDATES_WEBHOOK_URL: ${{ secrets.DISCORD_UPDATES_WEBHOOK_URL }}
           DEPLOYMENT_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
           DEPLOYMENT_SHA: ${{ github.event.deployment.sha }}
         run: |

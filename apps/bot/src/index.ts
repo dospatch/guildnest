@@ -216,7 +216,7 @@ const guildNestWelcomeEmbed = (member?: import('discord.js').GuildMember) => new
     '🤝 **Partnership**\\nWe’re looking forward to collaborating with Modora, exploring integration possibilities, and building something valuable for both communities.\\n\\nThank you for supporting GuildNest!'
   )
   .addFields({ name: '🌐 GuildNest Links', value: '[Website](https://guildnest.vercel.app/)\\n[Discord Community](https://discord.gg/5XG7DTazAJ)' })
-  .setFooter({ text: 'GuildNest · Official Welcome' });
+  ;
 
 const findWelcomeChannel = (guild: import('discord.js').Guild) => {
   const configuredId = process.env.WELCOME_CHANNEL_ID;
@@ -230,7 +230,7 @@ const publishWelcomeLanding = async (guild: import('discord.js').Guild) => {
   const channel = findWelcomeChannel(guild);
   if (!channel) { console.warn('GuildNest welcome channel not found in ' + guild.name); return; }
   const recent = await channel.messages.fetch({ limit: 50 }).catch(() => null);
-  const exists = recent?.some((message) => message.author.id === client.user?.id && message.embeds.some((embed) => embed.footer?.text === 'GuildNest · Official Welcome'));
+  const exists = recent?.some((message) => message.author.id === client.user?.id && message.embeds.some((embed) => embed.title === '👋 Welcome to GuildNest!'));
   if (!exists) { await channel.send({ embeds: [guildNestWelcomeEmbed()] }); console.log('Published GuildNest welcome page in #' + channel.name); }
 };
 

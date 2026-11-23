@@ -99,6 +99,21 @@ const communityPanelRow = () => new ActionRowBuilder<ButtonBuilder>().addCompone
   new ButtonBuilder().setCustomId('guildnest:community:support').setLabel('Support').setEmoji('🆘').setStyle(ButtonStyle.Secondary),
 );
 
+const aboutMeModal = () => new ModalBuilder()
+  .setCustomId('guildnest:about-me:submit')
+  .setTitle('Create Your About Me')
+  .addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(
+      new TextInputBuilder().setCustomId('display-name').setLabel('What should we call you?').setStyle(TextInputStyle.Short).setMaxLength(60).setRequired(true),
+    ),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(
+      new TextInputBuilder().setCustomId('interests').setLabel('Your interests').setStyle(TextInputStyle.Short).setMaxLength(120).setRequired(true),
+    ),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(
+      new TextInputBuilder().setCustomId('about').setLabel('A little about you').setStyle(TextInputStyle.Paragraph).setMaxLength(900).setRequired(true),
+    ),
+  );
+
 const communityModal = (kind: 'report' | 'bug' | 'suggestion' | 'feedback' | 'support') => {
   const labels = {
     report: { title: 'Submit a Staff Report', description: 'What are you reporting?', placeholder: 'Describe what happened, when it happened, and include relevant message links or evidence...' },
@@ -224,7 +239,7 @@ const guildNestWelcomeEmbed = (member?: import('discord.js').GuildMember, guild?
     '🤝 **Partnership**\nWe’re looking forward to collaborating with Modora, exploring integration possibilities, and building something valuable for both communities.\n\nThank you for supporting GuildNest!';
   return new EmbedBuilder()
     .setColor(0xFF8A3D)
-    .setTitle('GuildNest · Official Welcome')
+    .setTitle('👋 Official Welcome')
     .setDescription(body)
     .addFields(
       { name: '📘 Start Here', value: 'Rules: ' + guide('rules', 'Find the rules channel') + '\nIntroductions: ' + guide('introductions', 'Find introductions') + '\nGeneral: ' + guide('general', 'Find community chat') },
@@ -246,7 +261,7 @@ const publishWelcomeLanding = async (guild: import('discord.js').Guild) => {
   const channel = findWelcomeChannel(guild);
   if (!channel) { console.warn('GuildNest welcome channel not found in ' + guild.name); return; }
   const recent = await channel.messages.fetch({ limit: 50 }).catch(() => null);
-  const existing = recent?.find((message) => message.author.id === client.user?.id && message.embeds.some((embed) => embed.title === 'GuildNest · Official Welcome'));
+  const existing = recent?.find((message) => message.author.id === client.user?.id && message.embeds.some((embed) => embed.title === '👋 Official Welcome'));
   if (existing) {
     await existing.edit({ embeds: [guildNestWelcomeEmbed()] });
     console.log('Updated GuildNest welcome page in #' + channel.name);
@@ -313,6 +328,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
+      if (interaction.commandName === 'about-me') {
+        await interaction.showModal(aboutMeModal());
+        return;
+      }
+
       if (interaction.commandName === 'welcome-panel') {
         const guild = interaction.guild;
         if (!guild || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
@@ -326,15 +346,33 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (interaction.commandName === 'rules-panel') {
         const guild = interaction.guild;
-        const rulesChannel = guild?.channels.cache.find((item) => item.type === ChannelType.GuildText && item.name.toLowerCase() === 'rules');
+        if (!guild) {
+          await interaction.reply({ content: 'Run this inside your server.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        const rulesChannel = findNamedTextChannel(guild, undefined, ['rules']) ?? (interaction.channel?.type === ChannelType.GuildText ? interaction.channel : undefined);
+        if (!rulesChannel) {
+          await interaction.reply({ content: 'Create a #rules channel first, then run /rules-panel again.', flags: MessageFlags.Ephemeral });
+          return;
+        }
         const rulesEmbed = new EmbedBuilder().setColor(0xFF8A3D).setTitle('📜 GuildNest Community Rules')
-          .setDescription('Please read the rules in ' + (rulesChannel ? '<#' + rulesChannel.id + '>' : 'the server rules channel') + '. By acknowledging below, you confirm that you have read and agree to follow the community guidelines.')
+          .setDescription([
+            '**1. Be respectful.** Treat members and staff with courtesy. Harassment, hate speech, and personal attacks are not allowed.',
+            '**2. Keep it appropriate.** No explicit, illegal, dangerous, or otherwise prohibited content.',
+            '**3. No spam or advertising.** Do not flood channels, send unsolicited promotions, or misuse mentions.',
+            '**4. Protect privacy.** Do not share personal information, private messages, or account details without permission.',
+            '**5. Use the right channels.** Keep discussions, support requests, reports, suggestions, and feedback in their intended places.',
+            '**6. Follow staff directions.** Cooperate with moderators and use the report form if you have a concern about moderation.',
+            '**7. Be honest and constructive.** Do not abuse forms, votes, tickets, or community features.',
+            '',
+            'By pressing **I Agree**, you confirm that you have read and will follow these rules. Staff may update these guidelines when needed.',
+          ].join('\\n\\n'))
           .setFooter({ text: 'GuildNest · Community Standards' });
         const rulesRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder().setCustomId('guildnest:rules:acknowledge').setLabel('I have read the rules').setEmoji('✅').setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId('guildnest:rules:acknowledge').setLabel('I Agree — I have read the rules').setEmoji('✅').setStyle(ButtonStyle.Success),
         );
-        await interaction.channel?.send({ embeds: [rulesEmbed], components: [rulesRow] });
-        await interaction.reply({ content: '✅ Rules panel posted.', flags: MessageFlags.Ephemeral });
+        await rulesChannel.send({ embeds: [rulesEmbed], components: [rulesRow] });
+        await interaction.reply({ content: '✅ Rules panel posted in <#' + rulesChannel.id + '>.', flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -903,6 +941,33 @@ Note: log channels are provisioned; automated moderation/message event logging a
         await interaction.editReply('✅ Support ticket panel posted in this channel.');
         return;
       }
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === 'guildnest:about-me:submit') {
+      const guild = interaction.guild;
+      if (!guild) {
+        await interaction.reply({ content: 'Submit your About Me form inside the GuildNest server.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      const destination = findNamedTextChannel(guild, undefined, ['introductions', 'about-me', 'introductions-and-profiles']);
+      if (!destination) {
+        await interaction.reply({ content: 'I could not find #introductions. Please ask a server admin to create it.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      const displayName = interaction.fields.getTextInputValue('display-name').trim();
+      const interests = interaction.fields.getTextInputValue('interests').trim();
+      const about = interaction.fields.getTextInputValue('about').trim();
+      const profile = new EmbedBuilder()
+        .setColor(0xFF8A3D)
+        .setTitle('👤 About Me · ' + displayName.slice(0, 80))
+        .setDescription(about.slice(0, 1000))
+        .addFields({ name: 'Interests', value: interests.slice(0, 120) }, { name: 'Discord Member', value: '<@' + interaction.user.id + '>' })
+        .setThumbnail(interaction.user.displayAvatarURL())
+        .setTimestamp()
+        .setFooter({ text: 'GuildNest · Community Profile' });
+      await destination.send({ embeds: [profile] });
+      await interaction.reply({ content: '✅ Your About Me profile was posted in <#' + destination.id + '>.', flags: MessageFlags.Ephemeral });
+      return;
     }
 
     if (interaction.isButton() && interaction.customId === 'guildnest:rules:acknowledge') {

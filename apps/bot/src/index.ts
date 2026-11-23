@@ -24,7 +24,7 @@ if (!token) {
   throw new Error('Missing DISCORD_BOT_TOKEN. Set it in the hosting environment; never commit it.');
 }
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 const ticketCategoryId = process.env.TICKET_CATEGORY_ID;
 const ticketStaffRoleId = process.env.TICKET_STAFF_ROLE_ID;
 const ticketLogChannelId = process.env.TICKET_LOG_CHANNEL_ID;
@@ -206,12 +206,58 @@ server.listen(port, '0.0.0.0', () => {
   console.log(`NestMate health server listening on port ${port}.`);
 });
 
+const guildNestWelcomeEmbed = (member?: import('discord.js').GuildMember) => new EmbedBuilder()
+  .setColor(0xFF8A3D)
+  .setTitle('👋 Welcome to GuildNest!')
+  .setDescription(
+    (member ? 'Welcome <@' + member.id + '> to the official GuildNest community and partner space!\\n\\n' : 'Welcome to the official GuildNest community and partner space!\\n\\n') +
+    'GuildNest is a Discord management platform focused on helping server owners build, manage, automate, and improve their communities.\\n\\n' +
+    'We’re excited to work toward an integration with Modora, bringing our platforms closer together and creating more opportunities for Discord communities.\\n\\n' +
+    '🤝 **Partnership**\\nWe’re looking forward to collaborating with Modora, exploring integration possibilities, and building something valuable for both communities.\\n\\nThank you for supporting GuildNest!'
+  )
+  .addFields({ name: '🌐 GuildNest Links', value: '[Website](https://guildnest.vercel.app/)\\n[Discord Community](https://discord.gg/5XG7DTazAJ)' })
+  .setFooter({ text: 'GuildNest · Official Welcome' });
+
+const findWelcomeChannel = (guild: import('discord.js').Guild) => {
+  const configuredId = process.env.WELCOME_CHANNEL_ID;
+  const configured = configuredId ? guild.channels.cache.get(configuredId) : undefined;
+  if (configured?.type === ChannelType.GuildText) return configured;
+  return guild.channels.cache.find((channel): channel is import('discord.js').TextChannel =>
+    channel.type === ChannelType.GuildText && ['welcome', 'welcome-here', 'start-here'].includes(channel.name.toLowerCase()));
+};
+
+const publishWelcomeLanding = async (guild: import('discord.js').Guild) => {
+  const channel = findWelcomeChannel(guild);
+  if (!channel) { console.warn('GuildNest welcome channel not found in ' + guild.name); return; }
+  const recent = await channel.messages.fetch({ limit: 50 }).catch(() => null);
+  const exists = recent?.some((message) => message.author.id === client.user?.id && message.embeds.some((embed) => embed.footer?.text === 'GuildNest · Official Welcome'));
+  if (!exists) { await channel.send({ embeds: [guildNestWelcomeEmbed()] }); console.log('Published GuildNest welcome page in #' + channel.name); }
+};
+
+client.on(Events.GuildMemberAdd, async (member) => {
+  try {
+    const role = member.guild.roles.cache.find((item) => item.name.toLowerCase() === 'community member');
+    const botMember = member.guild.members.me;
+    if (role && botMember?.permissions.has(PermissionFlagsBits.ManageRoles) && role.position < botMember.roles.highest.position) {
+      await member.roles.add(role, 'GuildNest automatic new-member role');
+    } else {
+      console.warn('Could not assign Community Member in ' + member.guild.name + '; verify the role, Manage Roles permission, and role hierarchy.');
+    }
+    const channel = findWelcomeChannel(member.guild);
+    if (channel) await channel.send({ content: '👋 Welcome <@' + member.id + '>!', embeds: [guildNestWelcomeEmbed(member)] });
+    else console.warn('Could not send GuildNest join welcome: no #welcome channel in ' + member.guild.name);
+  } catch (error) { console.error('GuildNest join automation failed for ' + member.user.tag + ':', error); }
+});
+
 client.once(Events.ClientReady, (readyClient) => {
   readyClient.user.setPresence({
     status: 'online',
     activities: [{ name: 'GuildNest | /help', type: ActivityType.Watching }],
   });
   console.log(`NestMate is online as ${readyClient.user.tag} with presence enabled.`);
+  for (const guild of readyClient.guilds.cache.values()) {
+    publishWelcomeLanding(guild).catch((error) => console.error('Welcome landing publish failed:', error));
+  }
 });
 
 client.on(Events.Error, (error) => {

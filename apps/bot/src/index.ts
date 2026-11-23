@@ -36,6 +36,7 @@ const feedbackChannelId = process.env.FEEDBACK_CHANNEL_ID;
 const moduleCatalog = [
   { id: 'server-overview', name: 'Server overview', status: 'Live', short: 'Your manageable Discord servers', description: 'View the Discord servers your account can manage in the GuildNest dashboard.', access: 'Sign in to the GuildNest website with Discord. Your manageable servers appear in the live connection panel.' },
   { id: 'tickets-support', name: 'Tickets & support', status: 'Live', short: 'Private support conversations', description: 'Members can open private tickets. Support staff can claim, close, and reopen requests.', access: 'Use /ticket-panel and choose the category where new tickets should be created.' },
+  { id: 'welcome-community', name: 'Welcome & Community Hub', status: 'Live', short: 'Welcome guides, rules, and routed member forms', description: 'Configurable welcome content, channel guides, rules acknowledgement, and member forms routed to the correct staff channels.', access: 'Use /welcome-panel, /rules-panel, and /community-panel.' },
   { id: 'community-center', name: 'Community Center', status: 'Live', short: 'Bug reports, ideas, and feedback', description: 'Collect structured bug reports, suggestions, and feedback. Members can vote on suggestions.', access: 'Use /community-panel to post the submission buttons in your server.' },
   { id: 'server-setup', name: 'Server setup & sync', status: 'Live', short: 'Safe server setup and restoration', description: 'Create the starter GuildNest layout, preview a remodel, and safely restore missing items.', access: 'Use /setup, /sync, /remodel-preview, and /remodel-apply. Review the preview before applying changes.' },
   { id: 'moderation', name: 'Moderation', status: 'Planned', short: 'Moderation and staff safety tools', description: 'A dedicated moderation workspace with staff workflows and clear action records.', access: 'This module is still in development and is not available yet.' },
@@ -80,25 +81,31 @@ const moduleDetailEmbed = (moduleId: string) => {
 const communityPanel = () => new EmbedBuilder()
   .setColor(0x5865F2)
   .setTitle('GuildNest Community Center')
-  .setDescription('Choose an option below to contact the team or help improve GuildNest.')
+  .setDescription('Choose the form that matches what you need. NestMate routes each submission to its matching team channel.')
   .addFields(
+    { name: '🚩 Reports', value: 'Privately report a member or community concern to staff.', inline: true },
     { name: '🐛 Bug Reports', value: 'Report errors, broken commands, or unexpected behavior.', inline: true },
     { name: '💡 Suggestions', value: 'Suggest features and improvements.', inline: true },
-    { name: '💬 General Feedback', value: 'Share feedback about GuildNest or the community.', inline: true },
+    { name: '💬 Feedback', value: 'Share feedback about GuildNest or the community.', inline: true },
+    { name: '🆘 Support', value: 'Send a support request to the support team.', inline: true },
   )
   .setFooter({ text: 'Powered by NestMate · GuildNest' });
 
 const communityPanelRow = () => new ActionRowBuilder<ButtonBuilder>().addComponents(
-  new ButtonBuilder().setCustomId('guildnest:community:bug').setLabel('Report a Bug').setEmoji('🐛').setStyle(ButtonStyle.Danger),
-  new ButtonBuilder().setCustomId('guildnest:community:suggestion').setLabel('Suggest an Idea').setEmoji('💡').setStyle(ButtonStyle.Success),
-  new ButtonBuilder().setCustomId('guildnest:community:feedback').setLabel('Send Feedback').setEmoji('💬').setStyle(ButtonStyle.Primary),
+  new ButtonBuilder().setCustomId('guildnest:community:report').setLabel('Report').setEmoji('🚩').setStyle(ButtonStyle.Danger),
+  new ButtonBuilder().setCustomId('guildnest:community:bug').setLabel('Bug Report').setEmoji('🐛').setStyle(ButtonStyle.Danger),
+  new ButtonBuilder().setCustomId('guildnest:community:suggestion').setLabel('Suggestion').setEmoji('💡').setStyle(ButtonStyle.Success),
+  new ButtonBuilder().setCustomId('guildnest:community:feedback').setLabel('Feedback').setEmoji('💬').setStyle(ButtonStyle.Primary),
+  new ButtonBuilder().setCustomId('guildnest:community:support').setLabel('Support').setEmoji('🆘').setStyle(ButtonStyle.Secondary),
 );
 
-const communityModal = (kind: 'bug' | 'suggestion' | 'feedback') => {
+const communityModal = (kind: 'report' | 'bug' | 'suggestion' | 'feedback' | 'support') => {
   const labels = {
+    report: { title: 'Submit a Staff Report', description: 'What are you reporting?', placeholder: 'Describe what happened, when it happened, and include relevant message links or evidence...' },
     bug: { title: 'Submit a Bug Report', description: 'What went wrong?', placeholder: 'Steps to reproduce, error message, expected result...' },
     suggestion: { title: 'Submit a Suggestion', description: 'What would you like to see?', placeholder: 'Describe your idea and why it would help...' },
     feedback: { title: 'Send General Feedback', description: 'Tell us what you think', placeholder: 'Share your feedback...' },
+    support: { title: 'Request Support', description: 'What do you need help with?', placeholder: 'Describe the issue and what you have tried...' },
   }[kind];
   return new ModalBuilder()
     .setCustomId(`guildnest:community:submit:${kind}`)
@@ -206,17 +213,25 @@ server.listen(port, '0.0.0.0', () => {
   console.log(`NestMate health server listening on port ${port}.`);
 });
 
-const guildNestWelcomeEmbed = (member?: import('discord.js').GuildMember) => new EmbedBuilder()
-  .setColor(0xFF8A3D)
-  .setTitle('👋 Welcome to GuildNest!')
-  .setDescription(
-    (member ? 'Welcome <@' + member.id + '> to the official GuildNest community and partner space!\\n\\n' : 'Welcome to the official GuildNest community and partner space!\\n\\n') +
+const guildNestWelcomeEmbed = (member?: import('discord.js').GuildMember, guild?: import('discord.js').Guild) => {
+  const guide = (name: string, fallback: string) => {
+    const channel = guild?.channels.cache.find((item) => item.type === ChannelType.GuildText && item.name.toLowerCase() === name);
+    return channel ? '<#' + channel.id + '>' : fallback;
+  };
+  const body = (member ? 'Welcome <@' + member.id + '> to the official GuildNest community and partner space!\\n\\n' : 'Welcome to the official GuildNest community and partner space!\\n\\n') +
     'GuildNest is a Discord management platform focused on helping server owners build, manage, automate, and improve their communities.\\n\\n' +
     'We’re excited to work toward an integration with Modora, bringing our platforms closer together and creating more opportunities for Discord communities.\\n\\n' +
-    '🤝 **Partnership**\\nWe’re looking forward to collaborating with Modora, exploring integration possibilities, and building something valuable for both communities.\\n\\nThank you for supporting GuildNest!'
-  )
-  .addFields({ name: '🌐 GuildNest Links', value: '[Website](https://guildnest.vercel.app/)\\n[Discord Community](https://discord.gg/5XG7DTazAJ)' })
-  ;
+    '🤝 **Partnership**\\nWe’re looking forward to collaborating with Modora, exploring integration possibilities, and building something valuable for both communities.\\n\\nThank you for supporting GuildNest!';
+  return new EmbedBuilder()
+    .setColor(0xFF8A3D)
+    .setTitle('GuildNest · Official Welcome')
+    .setDescription(body)
+    .addFields(
+      { name: '📘 Start Here', value: 'Rules: ' + guide('rules', 'Find the rules channel') + '\\nIntroductions: ' + guide('introductions', 'Find introductions') + '\\nGeneral: ' + guide('general', 'Find community chat') },
+      { name: '🧭 Community Guides', value: 'Announcements: ' + guide('announcements', 'Find announcements') + '\\nSupport: ' + guide('support-tickets', 'Use the support panel') + '\\nSuggestions: ' + guide('suggestions', 'Find suggestions') },
+    )
+    .setFooter({ text: 'GuildNest · Official Welcome' });
+};
 
 const findWelcomeChannel = (guild: import('discord.js').Guild) => {
   const configuredId = process.env.WELCOME_CHANNEL_ID;
@@ -230,7 +245,7 @@ const publishWelcomeLanding = async (guild: import('discord.js').Guild) => {
   const channel = findWelcomeChannel(guild);
   if (!channel) { console.warn('GuildNest welcome channel not found in ' + guild.name); return; }
   const recent = await channel.messages.fetch({ limit: 50 }).catch(() => null);
-  const existing = recent?.find((message) => message.author.id === client.user?.id && message.embeds.some((embed) => embed.title === '👋 Welcome to GuildNest!'));
+  const existing = recent?.find((message) => message.author.id === client.user?.id && message.embeds.some((embed) => embed.title === 'GuildNest · Official Welcome'));
   if (existing) {
     await existing.edit({ embeds: [guildNestWelcomeEmbed()] });
     console.log('Updated GuildNest welcome page in #' + channel.name);
@@ -250,7 +265,7 @@ client.on(Events.GuildMemberAdd, async (member) => {
       console.warn('Could not assign Community Member in ' + member.guild.name + '; verify the role, Manage Roles permission, and role hierarchy.');
     }
     const channel = findWelcomeChannel(member.guild);
-    if (channel) await channel.send({ content: '👋 Welcome <@' + member.id + '>!', embeds: [guildNestWelcomeEmbed(member)] });
+    if (channel) await channel.send({ content: '👋 Welcome <@' + member.id + '>!', embeds: [guildNestWelcomeEmbed(member, member.guild)] });
     else console.warn('Could not send GuildNest join welcome: no #welcome channel in ' + member.guild.name);
   } catch (error) { console.error('GuildNest join automation failed for ' + member.user.tag + ':', error); }
 });
@@ -291,9 +306,34 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'help') {
         await interaction.reply({
-          content: "**NestMate · GuildNest**\n\n/help — show this help\n/module — view module status\n/setup — build the server layout and support panel\n/staff-center — create and secure the private Staff Center\n/sync — check and safely restore missing configured items\n/ticket-panel — post a support panel in a chosen category\n/community-panel — post Bug Reports, Suggestions, and Feedback buttons\n/post-update — publish an announcement to #updates\n\nGuildNest is being built in stages.",
+          content: "**NestMate · GuildNest**\n\n/help — show this help\n/module — view module status\n/setup — build the server layout and support panel\n/staff-center — create and secure the private Staff Center\n/sync — check and safely restore missing configured items\n/ticket-panel — post a support panel in a chosen category\n/community-panel — post Reports, Bug Reports, Suggestions, Feedback, and Support forms\n/welcome-panel — publish the official welcome guide\n/rules-panel — publish the rules acknowledgement panel\n/post-update — publish an announcement to #updates\n\nGuildNest is being built in stages.",
           flags: MessageFlags.Ephemeral,
         });
+        return;
+      }
+
+      if (interaction.commandName === 'welcome-panel') {
+        const guild = interaction.guild;
+        if (!guild || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+          await interaction.reply({ content: 'Run this in your server with Manage Server permission.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        await interaction.channel?.send({ embeds: [guildNestWelcomeEmbed(undefined, guild)] });
+        await interaction.reply({ content: '✅ Official welcome guide posted in this channel.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      if (interaction.commandName === 'rules-panel') {
+        const guild = interaction.guild;
+        const rulesChannel = guild?.channels.cache.find((item) => item.type === ChannelType.GuildText && item.name.toLowerCase() === 'rules');
+        const rulesEmbed = new EmbedBuilder().setColor(0xFF8A3D).setTitle('📜 GuildNest Community Rules')
+          .setDescription('Please read the rules in ' + (rulesChannel ? '<#' + rulesChannel.id + '>' : 'the server rules channel') + '. By acknowledging below, you confirm that you have read and agree to follow the community guidelines.')
+          .setFooter({ text: 'GuildNest · Community Standards' });
+        const rulesRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder().setCustomId('guildnest:rules:acknowledge').setLabel('I have read the rules').setEmoji('✅').setStyle(ButtonStyle.Success),
+        );
+        await interaction.channel?.send({ embeds: [rulesEmbed], components: [rulesRow] });
+        await interaction.reply({ content: '✅ Rules panel posted.', flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -864,6 +904,11 @@ Note: log channels are provisioned; automated moderation/message event logging a
       }
     }
 
+    if (interaction.isButton() && interaction.customId === 'guildnest:rules:acknowledge') {
+      await interaction.reply({ content: '✅ Thank you for confirming that you have read the GuildNest community rules.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
     if (interaction.isStringSelectMenu() && interaction.customId === 'guildnest:module:select') {
       await interaction.update({
         embeds: [moduleDetailEmbed(interaction.values[0])],
@@ -873,31 +918,35 @@ Note: log channels are provisioned; automated moderation/message event logging a
     }
 
     if (interaction.isButton() && [
+      'guildnest:community:report',
       'guildnest:community:bug',
       'guildnest:community:suggestion',
       'guildnest:community:feedback',
+      'guildnest:community:support',
     ].includes(interaction.customId)) {
-      const kind = interaction.customId.split(':')[2] as 'bug' | 'suggestion' | 'feedback';
+      const kind = interaction.customId.split(':')[2] as 'report' | 'bug' | 'suggestion' | 'feedback' | 'support';
       await interaction.showModal(communityModal(kind));
       return;
     }
 
     if (interaction.isModalSubmit() && interaction.customId.startsWith('guildnest:community:submit:')) {
-      const kind = interaction.customId.split(':')[3] as 'bug' | 'suggestion' | 'feedback';
+      const kind = interaction.customId.split(':')[3] as 'report' | 'bug' | 'suggestion' | 'feedback' | 'support';
       const guild = interaction.guild;
       if (!guild) {
         await interaction.reply({ content: 'Submit this form inside the GuildNest server.', flags: MessageFlags.Ephemeral });
         return;
       }
       const config = {
+        report: { id: process.env.REPORTS_CHANNEL_ID, names: ['staff-reports', 'member-reports', 'reports'], label: 'Staff Report', color: 0xED4245 },
         bug: { id: bugReportsChannelId, names: ['bug-reports', 'bugs', 'bug-reports-and-issues'], label: 'Bug Report', color: 0xED4245 },
         suggestion: { id: suggestionsChannelId, names: ['suggestions', 'feature-requests', 'ideas'], label: 'Suggestion', color: 0x57F287 },
         feedback: { id: feedbackChannelId, names: ['feedback', 'general-feedback'], label: 'General Feedback', color: 0x5865F2 },
+        support: { id: process.env.SUPPORT_REQUESTS_CHANNEL_ID, names: ['support-requests', 'support-tickets', 'support'], label: 'Support Request', color: 0x3498DB },
       }[kind];
       const destination = findSubmissionChannel(guild, config.id, config.names);
       if (!destination) {
         await interaction.reply({
-          content: `Your submission was not sent because I couldn't find a destination channel. Create a #${config.names[0]} channel or configure ${kind === 'bug' ? 'BUG_REPORTS_CHANNEL_ID' : kind === 'suggestion' ? 'SUGGESTIONS_CHANNEL_ID' : 'FEEDBACK_CHANNEL_ID'} in Render.`,
+          content: `Your submission was not sent because I couldn't find a destination channel. Create a #${config.names[0]} channel or configure ${kind === 'report' ? 'REPORTS_CHANNEL_ID' : kind === 'bug' ? 'BUG_REPORTS_CHANNEL_ID' : kind === 'suggestion' ? 'SUGGESTIONS_CHANNEL_ID' : kind === 'support' ? 'SUPPORT_REQUESTS_CHANNEL_ID' : 'FEEDBACK_CHANNEL_ID'} in Render.`,
           flags: MessageFlags.Ephemeral,
         });
         return;

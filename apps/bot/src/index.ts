@@ -328,7 +328,14 @@ server.listen(port, '0.0.0.0', () => {
 
 const guildNestWelcomeEmbed = (member?: import('discord.js').GuildMember, guild?: import('discord.js').Guild) => {
   const guide = (name: string, fallback: string) => {
-    const channel = guild?.channels.cache.find((item) => item.type === ChannelType.GuildText && item.name.toLowerCase() === name);
+    const aliases: Record<string, string[]> = {
+      'rules-and-guidelines': ['rules-and-guidelines', 'rules'],
+      'general-chat': ['general-chat', 'general'],
+      'create-a-ticket': ['create-a-ticket', 'support-tickets'],
+      'changelog': ['changelog', 'updates'],
+    };
+    const accepted = aliases[name] ?? [name];
+    const channel = guild?.channels.cache.find((item) => item.type === ChannelType.GuildText && accepted.includes(item.name.toLowerCase()));
     return channel ? '<#' + channel.id + '>' : fallback;
   };
   const greeting = member ? '👋 **WELCOME ABOARD, <@' + member.id + '>!**' : '👋 **WELCOME ABOARD!**';
@@ -346,13 +353,13 @@ const guildNestWelcomeEmbed = (member?: import('discord.js').GuildMember, guild?
     '🚀 **GET STARTED**',
     '',
     '📜 **READ THE RULES**',
-    'Start with ' + guide('rules', 'the rules channel') + ' and acknowledge the community guidelines.',
+    'Start with ' + guide('rules-and-guidelines', 'the rules channel') + ' and acknowledge the community guidelines.',
     '',
     '🧭 **EXPLORE THE COMMUNITY**',
-    'Visit ' + guide('announcements', 'announcements') + ' for news, ' + guide('updates', 'updates') + ' for platform changes, and ' + guide('general', 'general chat') + ' to meet the community.',
+    'Visit ' + guide('announcements', 'announcements') + ' for news, ' + guide('changelog', 'the changelog') + ' for platform changes, and ' + guide('general-chat', 'general chat') + ' to meet the community.',
     '',
     '🧩 **DISCOVER GUILDNEST MODULES**',
-    'Explore server setup, tickets, welcome tools, community forms, and other GuildNest features. Ask questions in ' + guide('support-tickets', 'the support channel') + '.',
+    'Explore server setup, tickets, welcome tools, community forms, and other GuildNest features. Ask questions in ' + guide('create-a-ticket', 'the support center') + '.',
     '',
     '💡 **SHARE IDEAS & REPORT ISSUES**',
     'Use the Community Center to submit suggestions, bug reports, feedback, support requests, or a private report. Submissions are routed to the appropriate team channel.',
@@ -507,9 +514,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
           await interaction.reply({ content: 'Run this inside your server.', flags: MessageFlags.Ephemeral });
           return;
         }
-        const rulesChannel = findNamedTextChannel(guild, undefined, ['rules']) ?? (interaction.channel?.type === ChannelType.GuildText ? interaction.channel : undefined);
+        const rulesChannel = findNamedTextChannel(guild, undefined, ['rules-and-guidelines', 'rules']) ?? (interaction.channel?.type === ChannelType.GuildText ? interaction.channel : undefined);
         if (!rulesChannel) {
-          await interaction.reply({ content: 'Create a #rules channel first, then run /rules-panel again.', flags: MessageFlags.Ephemeral });
+          await interaction.reply({ content: 'Create a #rules-and-guidelines channel first, then run /rules-panel again.', flags: MessageFlags.Ephemeral });
           return;
         }
         const rulesEmbed = new EmbedBuilder().setColor(0xFF8A3D).setTitle('📜 GuildNest Community Rules')
@@ -544,7 +551,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
         const title = interaction.options.getString('title', true).trim();
         const details = interaction.options.getString('message', true).trim();
-        const destination = findNamedTextChannel(guild, updatesChannelId, ['updates', 'guildnest-updates', 'bot-updates']);
+        const destination = findNamedTextChannel(guild, updatesChannelId, ['changelog', 'announcements', 'updates', 'guildnest-updates', 'bot-updates']);
         if (!destination) {
           await interaction.reply({ content: 'I could not find #updates. Run /setup or create #updates, then try again. You can also set UPDATES_CHANNEL_ID in Render.', flags: MessageFlags.Ephemeral });
           return;
@@ -572,17 +579,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await guild.channels.fetch();
         await guild.roles.fetch();
         const layout = [
-          { name: 'START HERE', channels: ['welcome', 'rules', 'announcements', 'updates'] },
-          { name: 'COMMUNITY', channels: ['general', 'introductions', 'media', 'events', 'suggestions', 'bug-reports', 'feedback'] },
-          { name: 'SUPPORT', channels: ['support-tickets', 'faq'] },
-          { name: 'STAFF', channels: ['staff-chat', 'staff-announcements', 'staff-reports', 'staff-resources', 'ticket-logs', 'moderation-logs', 'server-logs', 'message-logs', 'staff-meetings'] },
+          { name: '01 — START HERE', channels: ['welcome', 'rules-and-guidelines', 'server-information', 'verify', 'roles'] },
+          { name: '02 — OFFICIAL UPDATES', channels: ['announcements', 'changelog', 'development-updates', 'service-status', 'maintenance-notices'] },
+          { name: '03 — COMMUNITY', channels: ['general-chat', 'introductions', 'showcase', 'community-media', 'suggestions'] },
+          { name: '04 — SUPPORT CENTER', channels: ['support-information', 'create-a-ticket', 'community-help', 'bug-reports', 'feature-requests', 'known-issues'] },
+          { name: '05 — GUILDNEST RESOURCES', channels: ['documentation', 'getting-started', 'bot-commands', 'frequently-asked-questions'] },
+          { name: '06 — DEVELOPMENT', channels: ['roadmap', 'beta-testing', 'developer-discussion', 'feedback'] },
+          { name: '07 — VOICE LOUNGE', channels: ['general-voice', 'support-voice', 'community-lounge'] },
+          { name: '08 — STAFF HEADQUARTERS', channels: ['staff-announcements', 'staff-chat', 'ticket-management', 'moderation-logs', 'staff-reports', 'development-team'] },
         ];
         const existingNames = new Set(guild.channels.cache.map((channel) => channel.name.toLowerCase()));
         const missingCategories = layout.filter((item) => !guild.channels.cache.some((channel) => channel.type === ChannelType.GuildCategory && channel.name.toLowerCase() === item.name.toLowerCase())).map((item) => item.name);
         const missingChannels = layout.flatMap((item) => item.channels.filter((name) => !existingNames.has(name)));
-        const rolesToCheck = ['Owner', 'Management', 'Manager', 'Admin', 'Administrator', 'Moderator', 'GuildNest Moderator', 'Support Team', 'Community Member'];
+        const rolesToCheck = ['Owner', 'Management', 'Manager', 'Admin', 'Administrator', 'Moderator', 'Developer', 'GuildNest Developer', 'GuildNest Moderator', 'Support Team', 'Community Member', 'GuildNest Updates'];
         const rolesPresent = rolesToCheck.filter((name) => guild.roles.cache.some((role) => role.name.toLowerCase() === name.toLowerCase()));
-        const rolesMissing = ['GuildNest Moderator', 'Support Team', 'Community Member'].filter((name) => !guild.roles.cache.some((role) => role.name.toLowerCase() === name.toLowerCase()));
+        const rolesMissing = ['GuildNest Developer', 'GuildNest Moderator', 'Support Team', 'Community Member', 'GuildNest Updates'].filter((name) => !guild.roles.cache.some((role) => role.name.toLowerCase() === name.toLowerCase()));
         const botMember = guild.members.me;
         const missingBotPerms = [
           [PermissionFlagsBits.ManageChannels, 'Manage Channels'],
@@ -604,7 +615,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             `Support roles to add if missing: ${rolesMissing.join(', ') || 'none'}.`,
             `Bot permission check: ${missing.length ? '**Missing:** ' + missing.join(', ') : '**Passed**'}.`,
             '',
-            '**Permission plan:** keep existing channel-specific overwrites; add private STAFF denies for @everyone and access for recognized Owner, Management, Admin, Moderator, Support Team, and NestMate roles. Public categories remain public.',
+            '**Permission plan:** preserve existing channel-specific overwrites; keep STAFF HEADQUARTERS private for recognized Owner, Management, Admin, Moderator, Developer, GuildNest Moderator, Support Team, and NestMate roles. Public categories remain public.',
             '',
             '**Safety:** existing channels and messages will not be deleted. Existing channels with matching names may be moved into the matching category without replacing their custom overwrites. No human members will be assigned new roles automatically.',
             '',
@@ -633,44 +644,70 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await guild.channels.fetch();
         await guild.roles.fetch();
         const layout = [
-          { name: 'START HERE', channels: [
-            ['welcome', 'Welcome and getting-started information.'],
-            ['rules', 'Community rules and expectations.'],
-            ['announcements', 'Official community announcements.'],
-            ['updates', 'GuildNest and NestMate product updates.'],
+          { name: '01 — START HERE', channels: [
+            ['welcome', 'Official welcome and getting-started guide.'],
+            ['rules-and-guidelines', 'Official community rules and member expectations.'],
+            ['server-information', 'GuildNest community information, links, and how to get started.'],
+            ['verify', 'Member verification and access instructions.'],
+            ['roles', 'Choose available community notification and interest roles.'],
           ] as const },
-          { name: 'COMMUNITY', channels: [
-            ['general', 'General community conversation.'],
-            ['introductions', 'Introduce yourself to the community.'],
-            ['media', 'Share screenshots, clips, and other media.'],
-            ['events', 'Community events and activities.'],
-            ['suggestions', 'Feature ideas and community suggestions.'],
-            ['bug-reports', 'Report issues and unexpected behavior.'],
-            ['feedback', 'General feedback for the GuildNest team.'],
+          { name: '02 — OFFICIAL UPDATES', channels: [
+            ['announcements', 'Official GuildNest community announcements.'],
+            ['changelog', 'Verified GuildNest releases, fixes, and product changes.'],
+            ['development-updates', 'Development progress and engineering updates.'],
+            ['service-status', 'Current GuildNest bot, website, and service status.'],
+            ['maintenance-notices', 'Planned maintenance and service-impact notices.'],
           ] as const },
-          { name: 'SUPPORT', channels: [
-            ['support-tickets', 'Open a private support ticket using the ticket panel.'],
-            ['faq', 'Frequently asked questions and support guidance.'],
+          { name: '03 — COMMUNITY', channels: [
+            ['general-chat', 'General community conversation.'],
+            ['introductions', 'Introduce yourself to the GuildNest community.'],
+            ['showcase', 'Showcase your Discord server, setup, or GuildNest creations.'],
+            ['community-media', 'Share screenshots, clips, and community media.'],
+            ['suggestions', 'Submit and discuss GuildNest community suggestions.'],
           ] as const },
-          { name: 'STAFF', channels: [
+          { name: '04 — SUPPORT CENTER', channels: [
+            ['support-information', 'How to get help and what to include in a support request.'],
+            ['create-a-ticket', 'Open a private support ticket with the GuildNest team.'],
+            ['community-help', 'Peer-to-peer help and general questions.'],
+            ['bug-reports', 'Report reproducible bugs and unexpected behavior.'],
+            ['feature-requests', 'Request and discuss potential GuildNest features.'],
+            ['known-issues', 'Known problems, workarounds, and investigation status.'],
+          ] as const },
+          { name: '05 — GUILDNEST RESOURCES', channels: [
+            ['documentation', 'Official GuildNest documentation and reference links.'],
+            ['getting-started', 'Guides for setting up and using GuildNest.'],
+            ['bot-commands', 'NestMate commands and usage examples.'],
+            ['frequently-asked-questions', 'Answers to common GuildNest questions.'],
+          ] as const },
+          { name: '06 — DEVELOPMENT', channels: [
+            ['roadmap', 'Planned work and product direction.'],
+            ['beta-testing', 'Opt-in beta testing and pre-release feedback.'],
+            ['developer-discussion', 'Technical discussion about GuildNest development.'],
+            ['feedback', 'General product and community feedback.'],
+          ] as const },
+          { name: '07 — VOICE LOUNGE', channels: [
+            ['general-voice', 'General community voice room.'],
+            ['support-voice', 'Voice room for scheduled support sessions.'],
+            ['community-lounge', 'Casual community voice lounge.'],
+          ] as const },
+          { name: '08 — STAFF HEADQUARTERS', channels: [
+            ['staff-announcements', 'Private staff announcements and operational notices.'],
             ['staff-chat', 'Private staff coordination and day-to-day discussion.'],
-            ['staff-announcements', 'Internal staff announcements and operational notices.'],
-            ['staff-reports', 'Private staff reports and escalations.'],
-            ['staff-resources', 'Staff guides, procedures, and reference material.'],
-            ['ticket-logs', 'Private ticket lifecycle logs and transcript archive destination.'],
+            ['ticket-management', 'Private ticket triage and support coordination.'],
             ['moderation-logs', 'Private moderation action audit log.'],
-            ['server-logs', 'Private server and configuration event log.'],
-            ['message-logs', 'Private message event log; message content logging is not enabled.'],
-            ['staff-meetings', 'Private staff voice meeting room.'],
+            ['staff-reports', 'Private staff reports and escalations.'],
+            ['development-team', 'Private developer coordination and release planning.'],
           ] as const },
         ];
         const created: string[] = [];
         const moved: string[] = [];
         const secured: string[] = [];
         const roleSpecs = [
+          { name: 'GuildNest Developer', color: 0xD4A64A },
           { name: 'GuildNest Moderator', color: 0x3498DB },
           { name: 'Support Team', color: 0x2ECC71 },
           { name: 'Community Member', color: 0x95A5A6 },
+          { name: 'GuildNest Updates', color: 0xF1C40F },
         ];
         for (const spec of roleSpecs) {
           if (!guild.roles.cache.some((role) => role.name.toLowerCase() === spec.name.toLowerCase())) {
@@ -690,7 +727,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
 
         const staffCategory = categories.get('STAFF');
-        const staffRoleNames = ['owner', 'management', 'manager', 'admin', 'administrator', 'moderator', 'guildnest moderator', 'support team'];
+        const staffRoleNames = ['owner', 'management', 'manager', 'admin', 'administrator', 'moderator', 'developer', 'developer team', 'guildnest developer', 'guildnest moderator', 'guildnest staff', 'support team'];
         const staffRoles = guild.roles.cache.filter((role) => staffRoleNames.includes(role.name.toLowerCase()));
         const staffAllow = [
           PermissionFlagsBits.ViewChannel,
@@ -747,7 +784,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         for (const group of layout) {
           const parent = categories.get(group.name)!;
           for (const [name, topic] of group.channels) {
-            const voice = name === 'staff-meetings';
+            const voice = ['general-voice', 'support-voice', 'community-lounge', 'staff-meetings'].includes(name);
             let channel = guild.channels.cache.find((item) => item.name.toLowerCase() === name.toLowerCase() && (voice ? item.type === ChannelType.GuildVoice : item.type === ChannelType.GuildText));
             if (!channel) {
               channel = await guild.channels.create({
@@ -765,7 +802,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             if (!voice && channel.type === ChannelType.GuildText && channel.topic !== topic) {
               await channel.setTopic(topic, 'Update channel description during GuildNest remodel');
             }
-            if (group.name === 'STAFF') await addStaffOverwrites(channel);
+            if (group.name === '08 — STAFF HEADQUARTERS') await addStaffOverwrites(channel);
           }
         }
 

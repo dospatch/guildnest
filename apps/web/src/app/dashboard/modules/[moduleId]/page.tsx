@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getDiscordSession } from '@/lib/discord-session';
+import DashboardSidebar from '../../../components/dashboard-sidebar';
+import DiscordLogin from '../../../components/discord-login';
 
 const moduleDetails = {
   'server-overview': {
@@ -80,33 +82,36 @@ export default async function ModuleDetailPage({ params }: { params: Promise<{ m
   const live = item.status === 'Live';
 
   return (
-    <main className="module-detail-page">
-      <header className="module-detail-topbar">
-        <Link href="/dashboard" className="module-detail-brand"><span className="brand-mark">G<span>N</span></span><span><strong>GuildNest</strong><small>COMMUNITY PLATFORM</small></span></Link>
-        <Link href="/dashboard" className="module-detail-back">← All modules</Link>
-      </header>
-      <section className="module-detail-content">
-        <div className="module-detail-eyebrow">GUILDNEST MODULE LIBRARY</div>
-        <div className="module-detail-title-row">
-          <span className="module-detail-icon">{item.icon}</span>
-          <span className={`pill ${live ? 'ready' : 'planned'}`}>{item.status}</span>
-        </div>
-        <h1>{item.name}</h1>
-        <p className="module-detail-description">{item.description}</p>
-        <div className="module-detail-grid">
-          <section className="module-detail-panel">
-            <span className="module-detail-label">WHAT'S INCLUDED</span>
-            <h2>Module capabilities</h2>
-            <ul>{item.features.map((feature) => <li key={feature}>{feature}</li>)}</ul>
-          </section>
-          <section className="module-detail-panel">
-            <span className="module-detail-label">AVAILABILITY</span>
-            <h2>{item.availability}</h2>
-            <p>{item.access}</p>
-            <Link href="/dashboard" className="module-detail-action">{live ? 'Back to dashboard' : 'View all modules'} <span>↗</span></Link>
-          </section>
-        </div>
-        <footer className="module-detail-footer"><span>© 2026 GuildNest</span><span>Module availability is updated as verified features are released.</span></footer>
+    <main className="shell">
+      <DashboardSidebar />
+      <section className="main-area">
+        <header className="topbar">
+          <div className="breadcrumb"><Link href="/dashboard">Workspace</Link> <span>/</span> <strong>{item.name}</strong></div>
+          <div className="topbar-right"><span className="environment"><i /> GUILDNEST</span><DiscordLogin /></div>
+        </header>
+        <section className="module-detail-content">
+          <div className="module-detail-eyebrow">GUILDNEST MODULE LIBRARY</div>
+          <div className="module-detail-title-row">
+            <span className="module-detail-icon">{item.icon}</span>
+            <span className={"pill " + (live ? "ready" : "planned")}>{item.status}</span>
+          </div>
+          <h1>{item.name}</h1>
+          <p className="module-detail-description">{item.description}</p>
+          <div className="module-detail-grid">
+            <section className="module-detail-panel">
+              <span className="module-detail-label">WHAT&apos;S INCLUDED</span>
+              <h2>Module capabilities</h2>
+              <ul>{item.features.map((feature) => <li key={feature}>{feature}</li>)}</ul>
+            </section>
+            <section className="module-detail-panel">
+              <span className="module-detail-label">AVAILABILITY</span>
+              <h2>{item.availability}</h2>
+              <p>{item.access}</p>
+              <Link href="/dashboard" className="module-detail-action">{live ? "Back to dashboard" : "View all modules"} <span>↗</span></Link>
+            </section>
+          </div>
+          <footer className="module-detail-footer"><span>© 2026 GuildNest</span><span>Module availability is updated as verified features are released.</span></footer>
+        </section>
       </section>
     </main>
   );

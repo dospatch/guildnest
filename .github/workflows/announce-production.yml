@@ -96,7 +96,7 @@ jobs:
           webhook = os.environ["DISCORD_WEBHOOK"]
           role_id = os.environ.get("CHANGELOG_ROLE_ID", "").strip()
           target = os.environ["TARGET_SHA"]
-          mode_label = os.environ["MODE"]
+          mode_label = "Complete commit history" if os.environ["MODE"] == "backfill" else "New changes"
           lines = open("/tmp/changelog.txt", encoding="utf-8").read().splitlines()
           entries = []
           for line in lines:
@@ -149,7 +149,7 @@ jobs:
                   prefix = f"<@&{role_id}>\n" + prefix
               send(prefix + "\n".join(chunk))
           summary = (
-              f"{heading}\n<:check:> **History complete:** {len(entries):,} dated commit entries "
+              f"{heading}\n✅ **History complete:** {len(entries):,} dated commit entries "
               f"published across {len(chunks)} message(s).\n"
               f"**Order:** oldest to newest.\n"
               f"[View repository history](https://github.com/{os.environ['GITHUB_REPOSITORY']}/commits/main)"

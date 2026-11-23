@@ -521,13 +521,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
         const rulesEmbed = new EmbedBuilder().setColor(0xFF8A3D).setTitle('📜 GuildNest Community Rules')
           .setDescription([
-            '**1. Be respectful.** Treat members and staff with courtesy. Harassment, hate speech, and personal attacks are not allowed.',
-            '**2. Keep it appropriate.** No explicit, illegal, dangerous, or otherwise prohibited content.',
-            '**3. No spam or advertising.** Do not flood channels, send unsolicited promotions, or misuse mentions.',
-            '**4. Protect privacy.** Do not share personal information, private messages, or account details without permission.',
-            '**5. Use the right channels.** Keep discussions, support requests, reports, suggestions, and feedback in their intended places.',
-            '**6. Follow staff directions.** Cooperate with moderators and use the report form if you have a concern about moderation.',
-            '**7. Be honest and constructive.** Do not abuse forms, votes, tickets, or community features.',
+            '**1. Respect everyone.** Treat members, staff, and developers with courtesy. Harassment, hate speech, discrimination, bullying, and personal attacks are prohibited.',
+            '**2. Keep content appropriate.** No NSFW, graphic, illegal, or otherwise harmful content.',
+            '**3. No spam or flooding.** Do not flood channels with repeated messages, reactions, mentions, or duplicate requests.',
+            '**4. No unauthorized advertising.** Promotions, server invites, referral links, and unsolicited marketing require staff approval.',
+            '**5. Use the correct channels.** Keep support, bug reports, suggestions, feedback, and general conversation in their designated areas.',
+            '**6. Use support responsibly.** Open one ticket per issue, provide useful details, and be patient while staff investigate.',
+            '**7. Protect privacy and security.** Never post passwords, tokens, API keys, private credentials, or another person’s private information.',
+            '**8. No scams or malicious activity.** Phishing, malware, token grabbers, malicious scripts, and attempts to compromise accounts or servers are prohibited.',
+            '**9. Be honest about GuildNest.** Do not impersonate staff or claim unofficial projects, modifications, or announcements are official.',
+            '**10. Give constructive feedback.** Report bugs with clear steps and submit suggestions respectfully. Do not abuse tickets, forms, or voting.',
+            '**11. Follow staff instructions.** Cooperate with authorized moderators. If you disagree with a decision, use the appropriate appeal or report process.',
+            '**12. Follow Discord’s Terms and Guidelines.** All members must comply with Discord’s platform rules as well as these community standards.',
+            '',
+            '**Enforcement:** Depending on severity, violations may result in a warning, content removal, timeout, loss of access, or removal from the server. Serious violations may result in immediate action.',
             '',
             'By pressing **I Agree**, you confirm that you have read and will follow these rules. Staff may update these guidelines when needed.',
           ].join('\n\n'))

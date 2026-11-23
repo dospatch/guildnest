@@ -125,7 +125,7 @@ jobs:
                   "content": content,
                   "allowed_mentions": {"parse": [], "roles": [role_id] if role_id else []}
               }
-              req = urllib.request.Request(webhook, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
+              req = urllib.request.Request(webhook, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json", "User-Agent": "GuildNestChangelog/1.0 (+https://github.com/dospatch/guildnest)"}, method="POST")
               for attempt in range(5):
                   try:
                       with urllib.request.urlopen(req, timeout=30) as response:

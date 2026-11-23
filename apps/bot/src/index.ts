@@ -176,6 +176,80 @@ const findSubmissionChannel = (
 const botMemberHasPermission = (guild: import('discord.js').Guild, permission: bigint) =>
   Boolean(guild.members.me?.permissions.has(permission));
 
+const ensurePrivateStaffSubmissionChannels = async (guild: import('discord.js').Guild) => {
+  const botMember = guild.members.me;
+  if (!botMember?.permissions.has(PermissionFlagsBits.ManageChannels)) {
+    throw new Error('NestMate needs Manage Channels to prepare private staff submission channels.');
+  }
+
+  const staffRoleNames = new Set([
+    'owner', 'management', 'manager', 'admin', 'administrator', 'moderator',
+    'guildnest moderator', 'support team',
+  ]);
+  const staffRoles = guild.roles.cache.filter((role) =>
+    staffRoleNames.has(role.name.toLowerCase()) &&
+    !role.managed &&
+    role.position < botMember.roles.highest.position,
+  );
+
+  let category = guild.channels.cache.find((channel) =>
+    channel.type === ChannelType.GuildCategory && channel.name.toLowerCase() === 'staff',
+  ) as import('discord.js').CategoryChannel | undefined;
+  if (!category) {
+    category = await guild.channels.create({
+      name: 'STAFF',
+      type: ChannelType.GuildCategory,
+      reason: 'Create private GuildNest staff submission area',
+    });
+  }
+
+  // Apply targeted overwrites instead of replacing the category's full overwrite
+  // list, so existing staff access and custom permissions are preserved.
+  await category.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, 'Keep GuildNest staff area private');
+  for (const role of staffRoles.values()) {
+    await category.permissionOverwrites.edit(role.id, {
+      ViewChannel: true, SendMessages: true, ReadMessageHistory: true,
+      EmbedLinks: true, AttachFiles: true,
+    }, 'Grant existing staff role access to GuildNest staff submissions');
+  }
+  await category.permissionOverwrites.edit(botMember.id, {
+    ViewChannel: true, SendMessages: true, ReadMessageHistory: true,
+    ManageChannels: true, EmbedLinks: true, AttachFiles: true,
+  }, 'Allow NestMate to route private GuildNest submissions');
+
+  const destinations: import('discord.js').TextChannel[] = [];
+  for (const [name, topic] of [
+    ['staff-reports', 'Private member reports visible to authorized staff only.'],
+    ['staff-support', 'Private support requests visible to authorized staff only.'],
+  ] as const) {
+    let channel = guild.channels.cache.find((item) =>
+      item.type === ChannelType.GuildText && item.name.toLowerCase() === name,
+    ) as import('discord.js').TextChannel | undefined;
+    if (!channel) {
+      channel = await guild.channels.create({
+        name,
+        type: ChannelType.GuildText,
+        parent: category.id,
+        topic,
+        reason: 'Create private GuildNest submission destination',
+      });
+    }
+    await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, 'Keep private GuildNest submissions staff-only');
+    for (const role of staffRoles.values()) {
+      await channel.permissionOverwrites.edit(role.id, {
+        ViewChannel: true, SendMessages: true, ReadMessageHistory: true,
+        EmbedLinks: true, AttachFiles: true,
+      }, 'Grant existing staff role access to private GuildNest submissions');
+    }
+    await channel.permissionOverwrites.edit(botMember.id, {
+      ViewChannel: true, SendMessages: true, ReadMessageHistory: true,
+      ManageChannels: true, EmbedLinks: true, AttachFiles: true,
+    }, 'Allow NestMate to deliver private GuildNest submissions');
+    destinations.push(channel);
+  }
+  return destinations;
+};
+
 const findNamedTextChannel = (
   guild: import('discord.js').Guild,
   configuredId: string | undefined,
@@ -316,7 +390,7 @@ const guildNestWelcomeEmbed = (member?: import('discord.js').GuildMember, guild?
     '',
     '**GUILDNEST**',
     '🧩 *Build Better Servers • Stronger Communities*',
-  ].join('\\n');
+  ].join('\n');
   return new EmbedBuilder()
     .setColor(0xFF8A3D)
     .setTitle('👋 Official Welcome')
@@ -732,7 +806,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const existingStaffCategory = guild.channels.cache.find((channel): channel is import('discord.js').CategoryChannel => channel.type === ChannelType.GuildCategory && channel.name.toLowerCase() === 'staff');
         const staffCategory = existingStaffCategory ?? await guild.channels.create({ name: 'STAFF', type: ChannelType.GuildCategory, permissionOverwrites: overwrites, reason: 'Create private GuildNest Staff Center' });
         if (existingStaffCategory) {
-          await existingStaffCategory.permissionOverwrites.set(overwrites, 'Secure GuildNest Staff Center category');
+          // Preserve custom access already configured on the existing category.
+          await existingStaffCategory.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, 'Secure GuildNest Staff Center');
+          await existingStaffCategory.permissionOverwrites.edit(moderatorRole.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, Connect: true, Speak: true }, 'Grant GuildNest Moderator access');
+          await existingStaffCategory.permissionOverwrites.edit(supportRole.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, Connect: true, Speak: true }, 'Grant Support Team access');
+          if (botMember) await existingStaffCategory.permissionOverwrites.edit(botMember.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, ManageChannels: true, ManageMessages: true, EmbedLinks: true, AttachFiles: true, Connect: true, Speak: true }, 'Allow NestMate to manage Staff Center');
         }
 
         const created: string[] = [];
@@ -983,6 +1061,7 @@ Note: log channels are provisioned; automated moderation/message event logging a
         const guild = interaction.guild;
         const botMember = guild.members.me;
         if (botMember?.permissions.has(PermissionFlagsBits.ManageChannels)) {
+          await ensurePrivateStaffSubmissionChannels(guild);
           const communityCategory = guild.channels.cache.find((channel) =>
             channel.type === ChannelType.GuildCategory && channel.name.toLowerCase() === 'community',
           );
@@ -1112,13 +1191,17 @@ Note: log channels are provisioned; automated moderation/message event logging a
         return;
       }
       const config = {
-        report: { id: process.env.REPORTS_CHANNEL_ID, names: ['staff-reports', 'member-reports'], label: 'Staff Report', color: 0xED4245 },
+        report: { id: process.env.REPORTS_CHANNEL_ID, names: ['staff-reports'], label: 'Staff Report', color: 0xED4245 },
         bug: { id: bugReportsChannelId, names: ['bug-reports', 'bugs', 'bug-reports-and-issues'], label: 'Bug Report', color: 0xED4245 },
         suggestion: { id: suggestionsChannelId, names: ['suggestions', 'feature-requests', 'ideas'], label: 'Suggestion', color: 0x57F287 },
         feedback: { id: feedbackChannelId, names: ['feedback', 'general-feedback'], label: 'General Feedback', color: 0x5865F2 },
-        support: { id: process.env.SUPPORT_REQUESTS_CHANNEL_ID, names: ['support-requests', 'support-tickets', 'support'], label: 'Support Request', color: 0x3498DB },
+        support: { id: process.env.SUPPORT_REQUESTS_CHANNEL_ID, names: ['staff-support'], label: 'Support Request', color: 0x3498DB },
       }[kind];
       const destination = findSubmissionChannel(guild, config.id, config.names);
+      if (destination && (kind === 'report' || kind === 'support') && destination.permissionsFor(guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel)) {
+        await interaction.reply({ content: 'Your submission was not sent because the configured destination is visible to everyone. Please ask an administrator to make the destination staff-only and run /community-panel again.', flags: MessageFlags.Ephemeral });
+        return;
+      }
       if (!destination) {
         await interaction.reply({
           content: `Your submission was not sent because I couldn't find a destination channel. Create a #${config.names[0]} channel or configure ${kind === 'report' ? 'REPORTS_CHANNEL_ID' : kind === 'bug' ? 'BUG_REPORTS_CHANNEL_ID' : kind === 'suggestion' ? 'SUGGESTIONS_CHANNEL_ID' : kind === 'support' ? 'SUPPORT_REQUESTS_CHANNEL_ID' : 'FEEDBACK_CHANNEL_ID'} in Render.`,

@@ -194,7 +194,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'help') {
         await interaction.reply({
-          content: `**NestMate · GuildNest**\n\n`/help` — show this help\n`/module` — view module status\n`/setup` — build the server layout and support panel\n`/staff-center` — create and secure the private Staff Center\n`/sync` — check and safely restore missing configured items\n`/ticket-panel` — post a support panel in a chosen category\n`/community-panel` — post Bug Reports, Suggestions, and Feedback buttons\n`/post-update` — publish an announcement to #updates\n\nGuildNest is being built in stages.`,
+          content: "**NestMate · GuildNest**\n\n/help — show this help\n/module — view module status\n/setup — build the server layout and support panel\n/staff-center — create and secure the private Staff Center\n/sync — check and safely restore missing configured items\n/ticket-panel — post a support panel in a chosen category\n/community-panel — post Bug Reports, Suggestions, and Feedback buttons\n/post-update — publish an announcement to #updates\n\nGuildNest is being built in stages.",
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -421,7 +421,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 reason: 'GuildNest full server remodel',
               });
               created.push((voice ? 'voice ' : '#') + name);
-            } else if (channel.parentId !== parent.id) {
+            } else if (!channel.isThread() && channel.parentId !== parent.id) {
               await channel.setParent(parent.id, { lockPermissions: false, reason: 'Organize existing channel without replacing its custom permissions' });
               moved.push('#' + name);
             }
@@ -477,11 +477,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
           overwrites.push({ id: botMember.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] });
         }
 
-        let staffCategory = guild.channels.cache.find((channel) => channel.type === ChannelType.GuildCategory && channel.name.toLowerCase() === 'staff');
-        if (!staffCategory) {
-          staffCategory = await guild.channels.create({ name: 'STAFF', type: ChannelType.GuildCategory, permissionOverwrites: overwrites, reason: 'Create private GuildNest Staff Center' });
-        } else {
-          await staffCategory.permissionOverwrites.set(overwrites, 'Secure GuildNest Staff Center category');
+        const existingStaffCategory = guild.channels.cache.find((channel): channel is import('discord.js').CategoryChannel => channel.type === ChannelType.GuildCategory && channel.name.toLowerCase() === 'staff');
+        const staffCategory = existingStaffCategory ?? await guild.channels.create({ name: 'STAFF', type: ChannelType.GuildCategory, permissionOverwrites: overwrites, reason: 'Create private GuildNest Staff Center' });
+        if (existingStaffCategory) {
+          await existingStaffCategory.permissionOverwrites.set(overwrites, 'Secure GuildNest Staff Center category');
         }
 
         const created: string[] = [];

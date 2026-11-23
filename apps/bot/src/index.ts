@@ -930,6 +930,32 @@ Note: log channels are provisioned; automated moderation/message event logging a
           await interaction.reply({ content: 'Use this command in a server text channel.', flags: MessageFlags.Ephemeral });
           return;
         }
+        const guild = interaction.guild;
+        const botMember = guild.members.me;
+        if (botMember?.permissions.has(PermissionFlagsBits.ManageChannels)) {
+          const communityCategory = guild.channels.cache.find((channel) =>
+            channel.type === ChannelType.GuildCategory && channel.name.toLowerCase() === 'community',
+          );
+          const routes = [
+            { name: 'bug-reports', topic: 'Submit and discuss GuildNest bug reports.' },
+            { name: 'suggestions', topic: 'Community suggestions submitted through NestMate forms.' },
+            { name: 'feedback', topic: 'Feedback submitted through NestMate forms.' },
+          ];
+          for (const route of routes) {
+            const exists = guild.channels.cache.some((channel) =>
+              channel.type === ChannelType.GuildText && channel.name.toLowerCase() === route.name,
+            );
+            if (!exists) {
+              await guild.channels.create({
+                name: route.name,
+                type: ChannelType.GuildText,
+                ...(communityCategory ? { parent: communityCategory.id } : {}),
+                topic: route.topic,
+                reason: 'Create missing GuildNest community submission destination',
+              });
+            }
+          }
+        }
         const panelEmbed = communityPanel();
         const image = interaction.options.getAttachment('image');
         if (image && image.contentType?.startsWith('image/')) panelEmbed.setImage(image.url);
@@ -1036,7 +1062,7 @@ Note: log channels are provisioned; automated moderation/message event logging a
         return;
       }
       const config = {
-        report: { id: process.env.REPORTS_CHANNEL_ID, names: ['staff-reports', 'member-reports', 'reports'], label: 'Staff Report', color: 0xED4245 },
+        report: { id: process.env.REPORTS_CHANNEL_ID, names: ['staff-reports', 'member-reports'], label: 'Staff Report', color: 0xED4245 },
         bug: { id: bugReportsChannelId, names: ['bug-reports', 'bugs', 'bug-reports-and-issues'], label: 'Bug Report', color: 0xED4245 },
         suggestion: { id: suggestionsChannelId, names: ['suggestions', 'feature-requests', 'ideas'], label: 'Suggestion', color: 0x57F287 },
         feedback: { id: feedbackChannelId, names: ['feedback', 'general-feedback'], label: 'General Feedback', color: 0x5865F2 },

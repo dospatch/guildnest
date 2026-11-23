@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: write
+  workflows: write
 
 concurrency:
   group: guildnest-discord-changelog
@@ -126,7 +127,7 @@ jobs:
               value = ""
               part_number = 1
               for item in items:
-                  candidate = (value + "\n" if value else "") + item
+                  candidate = (value + "\n\n" if value else "") + item
                   if len(candidate) > 1024:
                       fields.append({"name": category if part_number == 1 else f"{category} (continued)", "value": value, "inline": False})
                       part_number += 1

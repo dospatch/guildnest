@@ -32,6 +32,9 @@ export const commands = [
     .setDescription('Publish the official GuildNest welcome message and channel guide.')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder()
+    .setName('about-me')
+    .setDescription('Create or update your GuildNest community profile.'),
+  new SlashCommandBuilder()
     .setName('rules-panel')
     .setDescription('Publish a rules acknowledgement panel in this channel.')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),

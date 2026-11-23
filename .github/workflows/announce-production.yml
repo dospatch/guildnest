@@ -92,11 +92,11 @@ jobs:
           fi
 
           python3 - <<'PY'
-          import json, os, subprocess, time, urllib.request, urllib.error
+          import json, os, time, urllib.request, urllib.error
           webhook = os.environ["DISCORD_WEBHOOK"]
           role_id = os.environ.get("CHANGELOG_ROLE_ID", "").strip()
-          target = os.environ["TARGET_SHA"]
           mode_label = "Complete commit history" if os.environ["MODE"] == "backfill" else "New changes"
+          repository = os.environ["GITHUB_REPOSITORY"]
           lines = open("/tmp/changelog.txt", encoding="utf-8").read().splitlines()
           categories = [
               ("Website & Dashboard", ("dashboard", "website", "web ", "web:", "oauth", "landing page", "module card", "sidebar")),
@@ -104,77 +104,101 @@ jobs:
               ("Infrastructure & Deployments", ("deploy", "deployment", "render", "vercel", "cloudflare", "worker", "ci ", "workflow", "github actions", "health endpoint")),
               ("Documentation & Maintenance", ("document", "readme", "gitignore", "typecheck", "typescript", "lint", "config", "diagnostic", "fix syntax", "format")),
           ]
-          grouped = {}
-          category_order = [name for name, _ in categories] + ["Other improvements"]
+          grouped = {name: [] for name, _ in categories}
+          grouped["Other improvements"] = []
           for line in lines:
-              parts = line.split("\x1f", 2)
+              parts = line.split("\\x1f", 2)
               if len(parts) != 3:
                   continue
               sha, date, subject = parts
               lower = subject.lower()
               category = next((name for name, terms in categories if any(term in lower for term in terms)), "Other improvements")
-              subject = subject.replace("@", "@\u200b")
-              grouped.setdefault(category, []).append(
-                  f"• **{date}** — {subject} ([{sha[:7]}](https://github.com/{os.environ['GITHUB_REPOSITORY']}/commit/{sha}))"
+              safe_subject = subject.replace("@", "@\\u200b")
+              grouped[category].append(
+                  f"• **{date}** — {safe_subject} ([{sha[:7]}](https://github.com/{repository}/commit/{sha}))"
               )
-          heading = "🏆 **GUILDNEST — OFFICIAL CHANGELOG**"
-          chunks, current = [], []
-          current_len = len(heading) + 120
-          current_category = None
-          for category in category_order:
-              for entry in grouped.get(category, []):
-                  section = f"\n**{category}**\n" if category != current_category else ""
-                  if current and current_len + len(section) + len(entry) + 1 > 1750:
-                      chunks.append(current)
-                      current, current_len = [], len(heading) + 120
-                      section = f"\n**{category}**\n"
-                  if section:
-                      current.append(section.strip())
-                      current_len += len(section)
-                  current.append(entry)
-                  current_len += len(entry) + 1
-                  current_category = category
-          if current:
-              chunks.append(current)
+          total_entries = sum(len(items) for items in grouped.values())
+          fields = []
+          for category, _ in categories:
+              items = grouped[category]
+              if not items:
+                  continue
+              value = ""
+              part_number = 1
+              for item in items:
+                  candidate = (value + "\\n" if value else "") + item
+                  if len(candidate) > 1024:
+                      fields.append({"name": category if part_number == 1 else f"{category} (continued)", "value": value, "inline": False})
+                      part_number += 1
+                      value = item
+                  else:
+                      value = candidate
+              if value:
+                  fields.append({"name": category if part_number == 1 else f"{category} (continued)", "value": value, "inline": False})
+          items = grouped["Other improvements"]
+          if items:
+              value = ""
+              part_number = 1
+              for item in items:
+                  candidate = (value + "\\n" if value else "") + item
+                  if len(candidate) > 1024:
+                      fields.append({"name": "Other improvements" if part_number == 1 else "Other improvements (continued)", "value": value, "inline": False})
+                      part_number += 1
+                      value = item
+                  else:
+                      value = candidate
+              if value:
+                  fields.append({"name": "Other improvements" if part_number == 1 else "Other improvements (continued)", "value": value, "inline": False})
 
-          def send(content):
-              payload = {
-                  "username": "GuildNest Changelog",
-                  "content": content,
-                  "allowed_mentions": {"parse": [], "roles": [role_id] if role_id else []}
-              }
-              req = urllib.request.Request(webhook, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json", "User-Agent": "GuildNestChangelog/1.0 (+https://github.com/dospatch/guildnest)"}, method="POST")
-              for attempt in range(5):
-                  try:
-                      with urllib.request.urlopen(req, timeout=30) as response:
-                          if response.status not in (200, 204):
-                              raise RuntimeError(f"Discord returned HTTP {response.status}")
-                      time.sleep(1.25)
-                      return
-                  except urllib.error.HTTPError as exc:
-                      if exc.code == 429 and attempt < 4:
-                          try:
-                              delay = float(json.loads(exc.read().decode()).get("retry_after", 2))
-                          except Exception:
-                              delay = 2
-                          time.sleep(delay + 0.5)
-                          continue
-                      detail = exc.read().decode("utf-8", errors="replace")[:1500]
-                      raise RuntimeError(f"Discord webhook rejected the message (HTTP {exc.code}): {detail or exc.reason}") from exc
+          # Discord permits at most 6,000 combined characters across an embed.
+          embed_chars = len("GUILDNEST — OFFICIAL CHANGELOG") + len(mode_label) + sum(len(f["name"]) + len(f["value"]) for f in fields)
+          if len(fields) > 25 or embed_chars > 5800:
+              counts = [f"**{name}:** {len(items)}" for name, items in grouped.items() if items]
+              fields = [{
+                  "name": "Release summary",
+                  "value": f"**{total_entries} commits** across {len([x for x in grouped.values() if x])} project areas.\\n" + "\\n".join(counts) + f"\\n\\n[View all commits](https://github.com/{repository}/commits/main)",
+                  "inline": False
+              }]
 
-          for index, chunk in enumerate(chunks, 1):
-              prefix = heading + f"\n**{mode_label} · Part {index}/{len(chunks)}**\n"
-              if index == 1 and role_id:
-                  prefix = f"<@&{role_id}>\n" + prefix
-              send(prefix + "\n".join(chunk))
-          summary = (
-              f"{heading}\n✅ **History complete:** {len(entries):,} dated commit entries "
-              f"published across {len(chunks)} message(s).\n"
-              f"**Format:** grouped by project area.\n"
-              f"[View repository history](https://github.com/{os.environ['GITHUB_REPOSITORY']}/commits/main)"
+          embed = {
+              "title": "🏆 GUILDNEST — OFFICIAL CHANGELOG",
+              "description": f"**{mode_label}** · {total_entries} commit(s)",
+              "color": 0xD4AF37,
+              "fields": fields,
+              "footer": {"text": "GuildNest • Automatically published after production updates"}
+          }
+          payload = {
+              "username": "GuildNest Changelog",
+              "content": f"<@&{role_id}>" if role_id else "",
+              "embeds": [embed],
+              "allowed_mentions": {"parse": [], "roles": [role_id] if role_id else []}
+          }
+          request = urllib.request.Request(
+              webhook,
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "Content-Type": "application/json",
+                  "User-Agent": "GuildNestChangelog/1.0 (+https://github.com/dospatch/guildnest)"
+              },
+              method="POST"
           )
-          send(summary)
-          print(f"Published {len(entries)} entries in {len(chunks)} parts.")
+          for attempt in range(5):
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      if response.status not in (200, 204):
+                          raise RuntimeError(f"Discord returned HTTP {response.status}")
+                  break
+              except urllib.error.HTTPError as exc:
+                  if exc.code == 429 and attempt < 4:
+                      try:
+                          delay = float(json.loads(exc.read().decode()).get("retry_after", 2))
+                      except Exception:
+                          delay = 2
+                      time.sleep(delay + 0.5)
+                      continue
+                  detail = exc.read().decode("utf-8", errors="replace")[:1500]
+                  raise RuntimeError(f"Discord webhook rejected the message (HTTP {exc.code}): {detail or exc.reason}") from exc
+          print(f"Published one embedded changelog post for {total_entries} commits.")
           PY
 
           git tag -f discord-changelog-last "$TARGET_SHA"

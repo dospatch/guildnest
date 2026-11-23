@@ -367,7 +367,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             '**7. Be honest and constructive.** Do not abuse forms, votes, tickets, or community features.',
             '',
             'By pressing **I Agree**, you confirm that you have read and will follow these rules. Staff may update these guidelines when needed.',
-          ].join('\\n\\n'))
+          ].join('\n\n'))
           .setFooter({ text: 'GuildNest · Community Standards' });
         const rulesRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
           new ButtonBuilder().setCustomId('guildnest:rules:acknowledge').setLabel('I Agree — I have read the rules').setEmoji('✅').setStyle(ButtonStyle.Success),
@@ -1022,7 +1022,7 @@ Note: log channels are provisioned; automated moderation/message event logging a
       const details = interaction.fields.getTextInputValue('details').trim();
       const embed = new EmbedBuilder()
         .setColor(config.color)
-        .setTitle(`${config.label}: ${title.slice(0, 220)}`)
+        .setTitle(kind === 'suggestion' ? `💡 New Suggestion: ${title.slice(0, 180)}` : kind === 'feedback' ? `💬 New Feedback: ${title.slice(0, 180)}` : kind === 'report' ? `🚩 Staff Report: ${title.slice(0, 180)}` : kind === 'bug' ? `🐛 Bug Report: ${title.slice(0, 180)}` : `🆘 Support Request: ${title.slice(0, 180)}`)
         .setDescription(details.slice(0, 4000))
         .addFields(
           { name: 'Submitted by', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },

@@ -1,0 +1,68 @@
+name: Announce GuildNest production releases
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+
+jobs:
+  announce:
+    if: github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    env:
+      DISCORD_UPDATES_WEBHOOK_URL: ${{ secrets.DISCORD_UPDATES_WEBHOOK_URL }}
+    steps:
+      - name: Confirm this is a production deployment
+        id: production
+        env:
+          DEPLOYMENT_ENVIRONMENT: ${{ github.event.deployment.environment }}
+        run: |
+          environment="${DEPLOYMENT_ENVIRONMENT,,}"
+          if [[ "$environment" == *production* ]]; then
+            echo "is_production=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_production=false" >> "$GITHUB_OUTPUT"
+            echo "Preview deployment; no Discord announcement will be sent."
+          fi
+
+      - name: Explain missing Discord webhook
+        if: steps.production.outputs.is_production == 'true' && env.DISCORD_UPDATES_WEBHOOK_URL == ''
+        run: echo "Production deployment succeeded, but no Discord announcement was sent. Add the DISCORD_UPDATES_WEBHOOK_URL repository secret."
+
+      - name: Publish release announcement to Discord
+        if: steps.production.outputs.is_production == 'true' && env.DISCORD_UPDATES_WEBHOOK_URL != ''
+        env:
+          DEPLOYMENT_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          DEPLOYMENT_SHA: ${{ github.event.deployment.sha }}
+        run: |
+          short_sha="${DEPLOYMENT_SHA:0:7}"
+          deployment_url="$DEPLOYMENT_URL"
+          if [[ -z "$deployment_url" ]]; then
+            deployment_url="https://github.com/${GITHUB_REPOSITORY}/commit/${DEPLOYMENT_SHA}"
+          fi
+          payload="$(jq -n \
+            --arg title "GuildNest website update is live" \
+            --arg description "A verified production deployment has completed successfully." \
+            --arg sha "$short_sha" \
+            --arg url "$deployment_url" \
+            --arg commit "https://github.com/${GITHUB_REPOSITORY}/commit/${DEPLOYMENT_SHA}" \
+            '{
+              username: "GuildNest Releases",
+              embeds: [{
+                title: $title,
+                description: $description,
+                color: 16747069,
+                fields: [
+                  {name: "Release", value: ("Production · " + $sha), inline: true},
+                  {name: "Website", value: ("[Open GuildNest](" + $url + ")"), inline: true},
+                  {name: "Changes", value: ("[View commit](" + $commit + ")"), inline: true}
+                ],
+                footer: {text: "GuildNest automatic release notices"}
+              }],
+              allowed_mentions: {parse: []}
+            }')"
+          curl --fail --silent --show-error \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            "$DISCORD_UPDATES_WEBHOOK_URL"

@@ -101,12 +101,12 @@ export default function DashboardPage() {
           </div>
           <div className="module-grid">
             {modules.map((module) => (
-              <article className="module-card" id={`module-${module.id}`} key={module.id}>
+              <a className="module-card" id={`module-${module.id}`} href={`/dashboard/modules/${module.id}`} key={module.id} aria-label={`Open ${module.name} module details`}>
                 <div className="module-top"><span className="module-icon">{module.icon}</span><span className={`pill ${module.tone}`}>{module.status}</span></div>
                 <h3>{module.name}</h3>
                 <p>{module.description}</p>
-                <div className="card-foot"><span>GUILDNEST MODULE</span><span className="arrow">↗</span></div>
-              </article>
+                <div className="card-foot"><span>OPEN MODULE</span><span className="arrow">↗</span></div>
+              </a>
             ))}
           </div>
           <footer className="footer"><span>© 2026 GuildNest</span><span>New modules arrive through verified releases.</span><a href="https://github.com/dospatch/guildnest" target="_blank" rel="noreferrer">Open source workspace ↗</a></footer>

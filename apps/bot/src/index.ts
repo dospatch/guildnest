@@ -101,6 +101,16 @@ const suggestionPanelEmbed = () => new EmbedBuilder()
   )
   .setFooter({ text: 'GuildNest · Community Ideas' });
 
+const feedbackPanelEmbed = () => new EmbedBuilder()
+  .setColor(0x5865F2)
+  .setTitle('💬 GuildNest Feedback')
+  .setDescription('Your feedback helps us improve GuildNest and the community. Share what is working well, what could be better, or what you would like the team to know.')
+  .addFields(
+    { name: 'What to include', value: 'Be specific and constructive. You can share positive feedback, concerns, or ideas for improvement.' },
+    { name: 'Where it goes', value: 'Feedback is delivered to the designated feedback channel for the team to review.' },
+  )
+  .setFooter({ text: 'GuildNest · Community Feedback' });
+
 const aboutMePanelRow = () => new ActionRowBuilder<ButtonBuilder>().addComponents(
   new ButtonBuilder().setCustomId('guildnest:about-me:open').setLabel('Create About Me').setEmoji('👤').setStyle(ButtonStyle.Primary),
 );
@@ -924,10 +934,10 @@ Note: log channels are provisioned; automated moderation/message event logging a
         const image = interaction.options.getAttachment('image');
         if (image && image.contentType?.startsWith('image/')) panelEmbed.setImage(image.url);
         await interaction.channel.send({
-          embeds: [panelEmbed, suggestionPanelEmbed()],
+          embeds: [panelEmbed, suggestionPanelEmbed(), feedbackPanelEmbed()],
           components: [communityPanelRow(), aboutMePanelRow()],
         });
-        await interaction.reply({ content: image ? 'GuildNest Community Center, suggestion, and About Me panels posted with your image.' : 'GuildNest Community Center, suggestion, and About Me panels posted.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: image ? 'GuildNest Community Center, suggestion, feedback, and About Me panels posted with your image.' : 'GuildNest Community Center, suggestion, and About Me panels posted.', flags: MessageFlags.Ephemeral });
         return;
       }
 

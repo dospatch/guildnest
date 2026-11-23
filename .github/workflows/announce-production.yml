@@ -107,13 +107,13 @@ jobs:
           grouped = {}
           category_order = [name for name, _ in categories] + ["Other improvements"]
           for line in lines:
-              parts = line.split("\\x1f", 2)
+              parts = line.split("\x1f", 2)
               if len(parts) != 3:
                   continue
               sha, date, subject = parts
               lower = subject.lower()
               category = next((name for name, terms in categories if any(term in lower for term in terms)), "Other improvements")
-              subject = subject.replace("@", "@\\u200b")
+              subject = subject.replace("@", "@\u200b")
               grouped.setdefault(category, []).append(
                   f"• **{date}** — {subject} ([{sha[:7]}](https://github.com/{os.environ['GITHUB_REPOSITORY']}/commit/{sha}))"
               )
@@ -123,11 +123,11 @@ jobs:
           current_category = None
           for category in category_order:
               for entry in grouped.get(category, []):
-                  section = f"\\n**{category}**\\n" if category != current_category else ""
+                  section = f"\n**{category}**\n" if category != current_category else ""
                   if current and current_len + len(section) + len(entry) + 1 > 1750:
                       chunks.append(current)
                       current, current_len = [], len(heading) + 120
-                      section = f"\\n**{category}**\\n"
+                      section = f"\n**{category}**\n"
                   if section:
                       current.append(section.strip())
                       current_len += len(section)

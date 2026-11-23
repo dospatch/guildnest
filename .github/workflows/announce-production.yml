@@ -1,66 +1,162 @@
-name: Announce GuildNest production releases
+name: GuildNest Official Changelog
 
 on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Choose the initial full history or a normal incremental update"
+        required: true
+        type: choice
+        options:
+          - backfill
+          - incremental
+        default: backfill
   deployment_status:
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: guildnest-discord-changelog
+  cancel-in-progress: false
 
 jobs:
-  announce:
-    if: github.event.deployment_status.state == 'success'
+  changelog:
+    if: github.event_name == 'workflow_dispatch' || github.event.deployment_status.state == 'success'
     runs-on: ubuntu-latest
-    env:
-      DISCORD_UPDATES_WEBHOOK_URL: ${{ secrets.DISCORD_UPDATES_WEBHOOK_URL }}
     steps:
-      - name: Confirm this is a production application deployment
-        id: production
+      - name: Identify production deployment
+        id: target
         env:
+          EVENT_NAME: ${{ github.event_name }}
           DEPLOYMENT_ENVIRONMENT: ${{ github.event.deployment.environment }}
+          DEPLOYMENT_SHA: ${{ github.event.deployment.sha }}
+          INPUT_MODE: ${{ inputs.mode }}
         run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            echo "mode=$INPUT_MODE" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           environment="${DEPLOYMENT_ENVIRONMENT,,}"
-          # Render names its production deployment environment after the service,
-          # while Vercel uses a Production environment. Ignore unrelated previews.
-          if [[ "$environment" == *production* || "$environment" == *guildnest-nestmate-6c3b* ]]; then
-            echo "is_production=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_production=false" >> "$GITHUB_OUTPUT"
-            echo "Unrelated preview deployment; no Discord announcement will be sent."
+          if [[ "$environment" != *production* && "$environment" != *guildnest-nestmate-6c3b* ]]; then
+            echo "Not a GuildNest production deployment; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "sha=$DEPLOYMENT_SHA" >> "$GITHUB_OUTPUT"
+          echo "mode=incremental" >> "$GITHUB_OUTPUT"
+
+      - name: Check out complete commit history
+        if: steps.target.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.target.outputs.sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish changelog to GuildNest #updates
+        if: steps.target.outputs.skip != 'true'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_UPDATES_WEBHOOK_URL }}
+          CHANGELOG_ROLE_ID: ${{ vars.GUILDNEST_CHANGELOG_ROLE_ID }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          MODE: ${{ steps.target.outputs.mode }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$DISCORD_WEBHOOK" ]]; then
+            echo "::error::Missing DISCORD_UPDATES_WEBHOOK_URL repository secret."
+            exit 1
           fi
 
-      - name: Explain missing Discord webhook
-        if: steps.production.outputs.is_production == 'true' && env.DISCORD_UPDATES_WEBHOOK_URL == ''
-        run: echo "Production deployment succeeded, but no Discord announcement was sent. Add the DISCORD_UPDATES_WEBHOOK_URL repository secret."
+          git fetch origin main --tags
+          marker="discord-changelog-last"
+          if [[ "$MODE" == "backfill" || ! -f .git/refs/tags/$marker && -z "$(git tag -l "$marker")" ]]; then
+            range="$TARGET_SHA"
+            mode_label="Complete commit history"
+          else
+            last_sha="$(git rev-parse "$marker^{commit}")"
+            if [[ "$last_sha" == "$TARGET_SHA" ]]; then
+              echo "This deployment has already been announced."
+              exit 0
+            fi
+            range="$last_sha..$TARGET_SHA"
+            mode_label="New changes"
+          fi
 
-      - name: Publish release announcement to Discord
-        if: steps.production.outputs.is_production == 'true' && env.DISCORD_UPDATES_WEBHOOK_URL != ''
-        env:
-          DEPLOYMENT_SHA: ${{ github.event.deployment.sha }}
-        run: |
-          short_sha="${DEPLOYMENT_SHA:0:7}"
-          website_url="https://guildnest-git-main-dospatchs-projects.vercel.app"
-          payload="$(jq -n \
-            --arg title "GuildNest update is live" \
-            --arg description "A successful production deployment has completed. Open GuildNest to see the latest release." \
-            --arg sha "$short_sha" \
-            --arg url "$website_url" \
-            --arg commit "https://github.com/${GITHUB_REPOSITORY}/commit/${DEPLOYMENT_SHA}" \
-            '{
-              username: "GuildNest Releases",
-              embeds: [{
-                title: $title,
-                description: $description,
-                color: 16747069,
-                fields: [
-                  {name: "Release", value: ("Production · " + $sha), inline: true},
-                  {name: "Website", value: ("[Open GuildNest](" + $url + ")"), inline: true},
-                  {name: "Changes", value: ("[View commit](" + $commit + ")"), inline: true}
-                ],
-                footer: {text: "GuildNest automatic release notices"}
-              }],
-              allowed_mentions: {parse: []}
-            }')"
-          curl --fail --silent --show-error \
-            -H "Content-Type: application/json" \
-            -d "$payload" \
-            "$DISCORD_UPDATES_WEBHOOK_URL"
+          git log --reverse --date=short --format='%H%x1f%cs%x1f%s' "$range" > /tmp/changelog.txt
+          if [[ ! -s /tmp/changelog.txt ]]; then
+            echo "No new commits to announce."
+            exit 0
+          fi
+
+          python3 - <<'PY'
+          import json, os, subprocess, time, urllib.request, urllib.error
+          webhook = os.environ["DISCORD_WEBHOOK"]
+          role_id = os.environ.get("CHANGELOG_ROLE_ID", "").strip()
+          target = os.environ["TARGET_SHA"]
+          mode_label = os.environ["MODE"]
+          lines = open("/tmp/changelog.txt", encoding="utf-8").read().splitlines()
+          entries = []
+          for line in lines:
+              parts = line.split("\x1f", 2)
+              if len(parts) != 3:
+                  continue
+              sha, date, subject = parts
+              short = sha[:7]
+              subject = subject.replace("@", "@\u200b")
+              entries.append(f"• **{date}** — {subject} ([{short}](https://github.com/{os.environ['GITHUB_REPOSITORY']}/commit/{sha}))")
+          heading = "🏆 **GUILDNEST — OFFICIAL CHANGELOG**"
+          chunks, current = [], []
+          current_len = len(heading) + 100
+          for entry in entries:
+              if current and current_len + len(entry) + 1 > 1750:
+                  chunks.append(current)
+                  current, current_len = [], len(heading) + 100
+              current.append(entry)
+              current_len += len(entry) + 1
+          if current:
+              chunks.append(current)
+
+          def send(content):
+              payload = {
+                  "username": "GuildNest Changelog",
+                  "content": content,
+                  "allowed_mentions": {"parse": [], "roles": [role_id] if role_id else []}
+              }
+              req = urllib.request.Request(webhook, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
+              for attempt in range(5):
+                  try:
+                      with urllib.request.urlopen(req, timeout=30) as response:
+                          if response.status not in (200, 204):
+                              raise RuntimeError(f"Discord returned HTTP {response.status}")
+                      time.sleep(1.25)
+                      return
+                  except urllib.error.HTTPError as exc:
+                      if exc.code == 429 and attempt < 4:
+                          try:
+                              delay = float(json.loads(exc.read().decode()).get("retry_after", 2))
+                          except Exception:
+                              delay = 2
+                          time.sleep(delay + 0.5)
+                          continue
+                      raise
+
+          for index, chunk in enumerate(chunks, 1):
+              prefix = heading + f"\n**{mode_label} · Part {index}/{len(chunks)}**\n"
+              if index == 1 and role_id:
+                  prefix = f"<@&{role_id}>\n" + prefix
+              send(prefix + "\n".join(chunk))
+          summary = (
+              f"{heading}\n<:check:> **History complete:** {len(entries):,} dated commit entries "
+              f"published across {len(chunks)} message(s).\n"
+              f"**Order:** oldest to newest.\n"
+              f"[View repository history](https://github.com/{os.environ['GITHUB_REPOSITORY']}/commits/main)"
+          )
+          send(summary)
+          print(f"Published {len(entries)} entries in {len(chunks)} parts.")
+          PY
+
+          git tag -f discord-changelog-last "$TARGET_SHA"
+          git push origin "refs/tags/discord-changelog-last" --force

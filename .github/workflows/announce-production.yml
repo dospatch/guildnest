@@ -107,13 +107,13 @@ jobs:
           grouped = {name: [] for name, _ in categories}
           grouped["Other improvements"] = []
           for line in lines:
-              parts = line.split("\\x1f", 2)
+              parts = line.split("\x1f", 2)
               if len(parts) != 3:
                   continue
               sha, date, subject = parts
               lower = subject.lower()
               category = next((name for name, terms in categories if any(term in lower for term in terms)), "Other improvements")
-              safe_subject = subject.replace("@", "@\\u200b")
+              safe_subject = subject.replace("@", "@\u200b")
               grouped[category].append(
                   f"• **{date}** — {safe_subject} ([{sha[:7]}](https://github.com/{repository}/commit/{sha}))"
               )
@@ -126,7 +126,7 @@ jobs:
               value = ""
               part_number = 1
               for item in items:
-                  candidate = (value + "\\n" if value else "") + item
+                  candidate = (value + "\n" if value else "") + item
                   if len(candidate) > 1024:
                       fields.append({"name": category if part_number == 1 else f"{category} (continued)", "value": value, "inline": False})
                       part_number += 1
@@ -140,7 +140,7 @@ jobs:
               value = ""
               part_number = 1
               for item in items:
-                  candidate = (value + "\\n" if value else "") + item
+                  candidate = (value + "\n" if value else "") + item
                   if len(candidate) > 1024:
                       fields.append({"name": "Other improvements" if part_number == 1 else "Other improvements (continued)", "value": value, "inline": False})
                       part_number += 1
@@ -156,7 +156,7 @@ jobs:
               counts = [f"**{name}:** {len(items)}" for name, items in grouped.items() if items]
               fields = [{
                   "name": "Release summary",
-                  "value": f"**{total_entries} commits** across {len([x for x in grouped.values() if x])} project areas.\\n" + "\\n".join(counts) + f"\\n\\n[View all commits](https://github.com/{repository}/commits/main)",
+                  "value": f"**{total_entries} commits** across {len([x for x in grouped.values() if x])} project areas.\n" + "\n".join(counts) + f"\n\n[View all commits](https://github.com/{repository}/commits/main)",
                   "inline": False
               }]
 

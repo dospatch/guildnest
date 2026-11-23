@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { getDiscordSession } from '@/lib/discord-session';
 
 const moduleDetails = {
   'server-overview': {
@@ -70,6 +71,9 @@ const moduleDetails = {
 type ModuleId = keyof typeof moduleDetails;
 
 export default async function ModuleDetailPage({ params }: { params: Promise<{ moduleId: string }> }) {
+  const session = await getDiscordSession();
+  if (!session) redirect('/?discord_error=session_missing');
+
   const { moduleId } = await params;
   if (!(moduleId in moduleDetails)) notFound();
   const item = moduleDetails[moduleId as ModuleId];

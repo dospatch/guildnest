@@ -184,7 +184,7 @@ const ensurePrivateStaffSubmissionChannels = async (guild: import('discord.js').
 
   const staffRoleNames = new Set([
     'owner', 'management', 'manager', 'admin', 'administrator', 'moderator',
-    'guildnest moderator', 'support team',
+    'developer', 'developer team', 'guildnest developer', 'guildnest moderator', 'guildnest staff', 'support team',
   ]);
   const staffRoles = guild.roles.cache.filter((role) =>
     staffRoleNames.has(role.name.toLowerCase()) &&
@@ -193,11 +193,11 @@ const ensurePrivateStaffSubmissionChannels = async (guild: import('discord.js').
   );
 
   let category = guild.channels.cache.find((channel) =>
-    channel.type === ChannelType.GuildCategory && channel.name.toLowerCase() === 'staff',
+    channel.type === ChannelType.GuildCategory && ['08 — staff headquarters', 'staff headquarters', 'staff'].includes(channel.name.toLowerCase()),
   ) as import('discord.js').CategoryChannel | undefined;
   if (!category) {
     category = await guild.channels.create({
-      name: 'STAFF',
+      name: '08 — STAFF HEADQUARTERS',
       type: ChannelType.GuildCategory,
       reason: 'Create private GuildNest staff submission area',
     });
@@ -733,7 +733,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           categories.set(group.name, category);
         }
 
-        const staffCategory = categories.get('STAFF');
+        const staffCategory = categories.get('08 — STAFF HEADQUARTERS');
         const staffRoleNames = ['owner', 'management', 'manager', 'admin', 'administrator', 'moderator', 'developer', 'developer team', 'guildnest developer', 'guildnest moderator', 'guildnest staff', 'support team'];
         const staffRoles = guild.roles.cache.filter((role) => staffRoleNames.includes(role.name.toLowerCase()));
         const staffAllow = [
@@ -1118,11 +1118,12 @@ Note: log channels are provisioned; automated moderation/message event logging a
         if (botMember?.permissions.has(PermissionFlagsBits.ManageChannels)) {
           await ensurePrivateStaffSubmissionChannels(guild);
           const communityCategory = guild.channels.cache.find((channel) =>
-            channel.type === ChannelType.GuildCategory && channel.name.toLowerCase() === 'community',
+            channel.type === ChannelType.GuildCategory && ['03 — community', 'community'].includes(channel.name.toLowerCase()),
           );
           const routes = [
             { name: 'bug-reports', topic: 'Submit and discuss GuildNest bug reports.' },
             { name: 'suggestions', topic: 'Community suggestions submitted through NestMate forms.' },
+            { name: 'feedback', topic: 'Feedback submitted through NestMate forms.' },
             { name: 'feedback', topic: 'Feedback submitted through NestMate forms.' },
           ];
           for (const route of routes) {
@@ -1148,7 +1149,7 @@ Note: log channels are provisioned; automated moderation/message event logging a
         const communityPayload = { embeds: [panelEmbed, suggestionPanelEmbed(), feedbackPanelEmbed()], components: [communityPanelRow(), aboutMePanelRow()] };
         if (existingCommunity) await existingCommunity.edit(communityPayload);
         else await interaction.channel.send(communityPayload);
-        await interaction.reply({ content: existingCommunity ? 'GuildNest Community Center and profile panels updated.' : image ? 'GuildNest Community Center, suggestion, feedback, and About Me panels posted with your image.' : 'GuildNest Community Center, suggestion, and About Me panels posted.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: existingCommunity ? 'GuildNest Community Center and profile panels updated.' : image ? 'GuildNest Community Center, all submission forms, and About Me panels posted with your image.' : 'GuildNest Community Center, all submission forms, and About Me panels posted.', flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -1248,11 +1249,11 @@ Note: log channels are provisioned; automated moderation/message event logging a
         return;
       }
       const config = {
-        report: { id: process.env.REPORTS_CHANNEL_ID, names: ['staff-reports'], label: 'Staff Report', color: 0xED4245 },
+        report: { id: process.env.REPORTS_CHANNEL_ID, names: ['staff-reports'], label: 'Private Staff Report', color: 0xED4245 },
         bug: { id: bugReportsChannelId, names: ['bug-reports', 'bugs', 'bug-reports-and-issues'], label: 'Bug Report', color: 0xED4245 },
         suggestion: { id: suggestionsChannelId, names: ['suggestions', 'feature-requests', 'ideas'], label: 'Suggestion', color: 0x57F287 },
         feedback: { id: feedbackChannelId, names: ['feedback', 'general-feedback'], label: 'General Feedback', color: 0x5865F2 },
-        support: { id: process.env.SUPPORT_REQUESTS_CHANNEL_ID, names: ['staff-support'], label: 'Support Request', color: 0x3498DB },
+        support: { id: process.env.SUPPORT_REQUESTS_CHANNEL_ID, names: ['staff-support'], label: 'Private Support Request', color: 0x3498DB },
       }[kind];
       const destination = findSubmissionChannel(guild, config.id, config.names);
       if (destination && (kind === 'report' || kind === 'support') && destination.permissionsFor(guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel)) {

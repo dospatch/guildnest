@@ -478,7 +478,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'help') {
         await interaction.reply({
-          content: "**NestMate · GuildNest**\n\n/help — show this help\n/module — view module status\n/setup — build the server layout and support panel\n/staff-center — create and secure the private Staff Center\n/sync — check and safely restore missing configured items\n/ticket-panel — post a support panel in a chosen category\n/community-panel — post Reports, Bug Reports, Suggestions, Feedback, and Support forms\n/welcome-panel — publish the official welcome guide\n/rules-panel — publish the rules acknowledgement panel\n/post-update — publish an announcement to #updates\n\nGuildNest is being built in stages.",
+          content: "**NestMate · GuildNest**\n\n/help — show this help\n/module — view module status\n/setup — build the starter layout and support panel\n/remodel-preview — preview the full official GuildNest layout\n/remodel-apply — build the official GuildNest layout without deleting existing channels\n/staff-center — create and secure the private Staff Center\n/sync — check and safely restore missing configured items\n/ticket-panel — post a support panel in a chosen category\n/community-panel — post Reports, Bug Reports, Suggestions, Feedback, and Support forms\n/welcome-panel — publish the official welcome guide\n/rules-panel — publish the rules acknowledgement panel\n/post-update — publish an announcement to #updates\n\nGuildNest is being built in stages.",
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -1442,7 +1442,7 @@ Note: log channels are provisioned; automated moderation/message event logging a
             ? guild.channels.cache.get(ticketCategoryId)
             : undefined;
           const supportCategory = guild.channels.cache.find((item) =>
-            item.type === ChannelType.GuildCategory && item.name.toLowerCase() === 'support',
+            item.type === ChannelType.GuildCategory && ['04 — support center', 'support'].includes(item.name.toLowerCase()),
           );
           const parent = selectedCategory?.type === ChannelType.GuildCategory
             ? selectedCategory

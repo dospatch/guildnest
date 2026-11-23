@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import DiscordLogin from '../components/discord-login';
 import DashboardLiveStatus from '../components/dashboard-live-status';
+import DashboardSidebar from '../components/dashboard-sidebar';
 
 const modules = [
   { id: 'server-overview', icon: '⌘', name: 'Server overview', description: 'View the Discord servers your account can manage.', status: 'Live', tone: 'ready' },
@@ -15,7 +16,6 @@ const modules = [
 ];
 
 export default function DashboardPage() {
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
@@ -34,54 +34,18 @@ export default function DashboardPage() {
   if (!authorized) {
     return (
       <main className="dashboard-auth-check">
-        <div className="brand-mark">G<span>N</span></div>
+        <div className="brand-mark"><img src="/guildnest-mark.svg" alt="" /></div>
         <strong>Checking your Discord sign-in…</strong>
         <p>GuildNest will open your modules after your account is verified.</p>
       </main>
     );
   }
 
-  const closeMobileNav = () => setMobileNavOpen(false);
-
   return (
     <main className="shell">
-      {mobileNavOpen && <button className="mobile-nav-overlay" aria-label="Close navigation menu" onClick={closeMobileNav} />}
-      <aside className={`sidebar${mobileNavOpen ? ' sidebar-open' : ''}`}>
-        <a className="brand" href="#modules" aria-label="GuildNest modules" onClick={closeMobileNav}>
-          <span className="brand-mark">G<span>N</span></span>
-          <span className="brand-copy"><strong>GuildNest</strong><small>COMMUNITY PLATFORM</small></span>
-        </a>
-        <div className="workspace-label">WORKSPACE</div>
-        <nav className="nav-list" aria-label="Main navigation">
-          <a className="nav-item active" href="#modules" onClick={closeMobileNav}><span>◇</span> Modules <span className="nav-count">{modules.length}</span></a>
-        </nav>
-        <div className="sidebar-module-heading">YOUR MODULES</div>
-        <nav className="sidebar-module-list" aria-label="GuildNest modules">
-          {modules.map((module) => (
-            <a className="sidebar-module-item" href={`#module-${module.id}`} key={module.id} onClick={closeMobileNav}>
-              <span className="sidebar-module-icon">{module.icon}</span>
-              <span>{module.name}</span>
-              <span className={`sidebar-module-status ${module.tone}`} />
-            </a>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="nestmate-card">
-            <div className="nestmate-icon">N</div>
-            <div><strong>NestMate</strong><small>Discord companion</small></div>
-            <span className="status-dot" aria-label="Bot service status shown in Render" />
-            <p>Your Discord companion for GuildNest modules and server tools.</p>
-          </div>
-          <a className="github-link" href="https://github.com/dospatch/guildnest" target="_blank" rel="noreferrer"><span>↗</span> View project on GitHub</a>
-          <div className="sidebar-foot">GuildNest modules, all in one place.</div>
-        </div>
-      </aside>
-
+      <DashboardSidebar />
       <section className="main-area" id="modules">
         <header className="topbar">
-          <button className="mobile-menu-toggle" aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen((open) => !open)}>
-            <span /><span /><span />
-          </button>
           <div className="breadcrumb">Workspace <span>/</span> <strong>Modules</strong></div>
           <div className="topbar-right"><span className="environment"><i /> GUILDNEST</span><DiscordLogin /></div>
         </header>

@@ -130,8 +130,7 @@ jobs:
                   try:
                       with urllib.request.urlopen(req, timeout=30) as response:
                           if response.status not in (200, 204):
-                              detail = exc.read().decode("utf-8", errors="replace")[:1500]
-                      raise RuntimeError(f"Discord webhook rejected the message (HTTP {exc.code}): {detail or exc.reason}") from exc RuntimeError(f"Discord returned HTTP {response.status}")
+                              raise RuntimeError(f"Discord returned HTTP {response.status}")
                       time.sleep(1.25)
                       return
                   except urllib.error.HTTPError as exc:

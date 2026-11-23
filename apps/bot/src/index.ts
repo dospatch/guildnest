@@ -488,8 +488,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
           await interaction.reply({ content: 'Run this in your server with Manage Server permission.', flags: MessageFlags.Ephemeral });
           return;
         }
-        await interaction.channel?.send({ embeds: [guildNestWelcomeEmbed(undefined, guild)] });
-        await interaction.reply({ content: '✅ Official welcome guide posted in this channel.', flags: MessageFlags.Ephemeral });
+        const welcomeChannel = interaction.channel;
+        if (!welcomeChannel || !('messages' in welcomeChannel) || !('send' in welcomeChannel)) {
+          await interaction.reply({ content: 'Run this command in a server text channel.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        const welcomeMessages = await welcomeChannel.messages.fetch({ limit: 50 }).catch(() => null);
+        const existingWelcome = welcomeMessages?.find((message) => message.author.id === client.user?.id && message.embeds.some((embed) => embed.title === '👋 Official Welcome'));
+        if (existingWelcome) await existingWelcome.edit({ embeds: [guildNestWelcomeEmbed(undefined, guild)] });
+        else await welcomeChannel.send({ embeds: [guildNestWelcomeEmbed(undefined, guild)] });
+        await interaction.reply({ content: existingWelcome ? '✅ Existing official welcome guide updated.' : '✅ Official welcome guide posted in this channel.', flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -520,8 +528,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const rulesRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
           new ButtonBuilder().setCustomId('guildnest:rules:acknowledge').setLabel('I Agree — I have read the rules').setEmoji('✅').setStyle(ButtonStyle.Success),
         );
-        await rulesChannel.send({ embeds: [rulesEmbed], components: [rulesRow] });
-        await interaction.reply({ content: '✅ Rules panel posted in <#' + rulesChannel.id + '>.', flags: MessageFlags.Ephemeral });
+        const recentRules = await rulesChannel.messages.fetch({ limit: 50 }).catch(() => null);
+        const existingRules = recentRules?.find((message) => message.author.id === client.user?.id && message.embeds.some((embed) => embed.title === '📜 GuildNest Community Rules'));
+        if (existingRules) await existingRules.edit({ embeds: [rulesEmbed], components: [rulesRow] });
+        else await rulesChannel.send({ embeds: [rulesEmbed], components: [rulesRow] });
+        await interaction.reply({ content: (existingRules ? '✅ Existing rules panel updated in ' : '✅ Rules panel posted in ') + '<#' + rulesChannel.id + '>.', flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -1088,11 +1099,12 @@ Note: log channels are provisioned; automated moderation/message event logging a
         const panelEmbed = communityPanel();
         const image = interaction.options.getAttachment('image');
         if (image && image.contentType?.startsWith('image/')) panelEmbed.setImage(image.url);
-        await interaction.channel.send({
-          embeds: [panelEmbed, suggestionPanelEmbed(), feedbackPanelEmbed()],
-          components: [communityPanelRow(), aboutMePanelRow()],
-        });
-        await interaction.reply({ content: image ? 'GuildNest Community Center, suggestion, feedback, and About Me panels posted with your image.' : 'GuildNest Community Center, suggestion, and About Me panels posted.', flags: MessageFlags.Ephemeral });
+        const recentCommunity = await interaction.channel.messages.fetch({ limit: 50 }).catch(() => null);
+        const existingCommunity = recentCommunity?.find((message) => message.author.id === client.user?.id && message.embeds.some((embed) => embed.title === 'GuildNest Community Center'));
+        const communityPayload = { embeds: [panelEmbed, suggestionPanelEmbed(), feedbackPanelEmbed()], components: [communityPanelRow(), aboutMePanelRow()] };
+        if (existingCommunity) await existingCommunity.edit(communityPayload);
+        else await interaction.channel.send(communityPayload);
+        await interaction.reply({ content: existingCommunity ? 'GuildNest Community Center and profile panels updated.' : image ? 'GuildNest Community Center, suggestion, feedback, and About Me panels posted with your image.' : 'GuildNest Community Center, suggestion, and About Me panels posted.', flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -1113,15 +1125,16 @@ Note: log channels are provisioned; automated moderation/message event logging a
           return;
         }
 
-        await interaction.channel.send({
-          embeds: [new EmbedBuilder()
-            .setColor(0x5865F2)
-            .setTitle(`GuildNest Support · ${category.name}`)
-            .setDescription(`Need help from the team? Press the button below to open a private support ticket. New tickets from this panel will be created under **${category.name}**.`)
-            .setFooter({ text: 'Powered by NestMate · GuildNest' })],
-          components: [ticketPanelRow(category.id)],
-        });
-        await interaction.editReply('✅ Support ticket panel posted in this channel.');
+        const ticketPanelEmbed = new EmbedBuilder()
+          .setColor(0x5865F2)
+          .setTitle(`GuildNest Support · ${category.name}`)
+          .setDescription(`Need help from the team? Press the button below to open a private support ticket. New tickets from this panel will be created under **${category.name}**.`)
+          .setFooter({ text: 'Powered by NestMate · GuildNest' });
+        const recentTicketPanels = await interaction.channel.messages.fetch({ limit: 50 }).catch(() => null);
+        const existingTicketPanel = recentTicketPanels?.find((message) => message.author.id === client.user?.id && message.embeds.some((embed) => embed.title === `GuildNest Support · ${category.name}`));
+        if (existingTicketPanel) await existingTicketPanel.edit({ embeds: [ticketPanelEmbed], components: [ticketPanelRow(category.id)] });
+        else await interaction.channel.send({ embeds: [ticketPanelEmbed], components: [ticketPanelRow(category.id)] });
+        await interaction.editReply(existingTicketPanel ? '✅ Existing support ticket panel updated.' : '✅ Support ticket panel posted in this channel.');
         return;
       }
     }

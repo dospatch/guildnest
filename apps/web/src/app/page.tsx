@@ -6,7 +6,7 @@ export default function Home() {
     <main className="landing-page">
       <header className="landing-header">
         <a className="landing-brand" href="/" aria-label="GuildNest home">
-          <span className="landing-brand-mark">G<span>N</span></span>
+          <span className="landing-brand-mark"><img src="/guildnest-mark.svg" alt="" /></span>
           <span className="landing-brand-copy"><strong>GuildNest</strong><small>COMMUNITY PLATFORM</small></span>
         </a>
         <nav className="landing-nav" aria-label="Main navigation">
@@ -75,7 +75,7 @@ export default function Home() {
         <a className="discord-login landing-primary" href="/api/auth/discord">Continue with Discord <span className="landing-arrow" aria-hidden="true">↗</span></a>
       </section>
 
-      <footer className="landing-footer"><a className="landing-brand landing-footer-brand" href="/"><span className="landing-brand-mark">G<span>N</span></span><span className="landing-brand-copy"><strong>GuildNest</strong><small>COMMUNITY PLATFORM</small></span></a><span>© 2026 GuildNest. Built for better communities.</span><Link href="https://github.com/dospatch/guildnest" target="_blank" rel="noreferrer">Open-source on GitHub ↗</Link></footer>
+      <footer className="landing-footer"><a className="landing-brand landing-footer-brand" href="/"><span className="landing-brand-mark"><img src="/guildnest-mark.svg" alt="" /></span><span className="landing-brand-copy"><strong>GuildNest</strong><small>COMMUNITY PLATFORM</small></span></a><span>© 2026 GuildNest. Built for better communities.</span><Link href="https://github.com/dospatch/guildnest" target="_blank" rel="noreferrer">Open-source on GitHub ↗</Link></footer>
     </main>
   );
 }

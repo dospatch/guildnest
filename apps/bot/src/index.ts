@@ -14,6 +14,7 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
+  StringSelectMenuBuilder,
   PermissionFlagsBits,
   type OverwriteResolvable,
 } from 'discord.js';
@@ -31,6 +32,50 @@ const updatesChannelId = process.env.UPDATES_CHANNEL_ID;
 const bugReportsChannelId = process.env.BUG_REPORTS_CHANNEL_ID;
 const suggestionsChannelId = process.env.SUGGESTIONS_CHANNEL_ID;
 const feedbackChannelId = process.env.FEEDBACK_CHANNEL_ID;
+
+const moduleCatalog = [
+  { id: 'server-overview', name: 'Server overview', status: 'Live', short: 'Your manageable Discord servers', description: 'View the Discord servers your account can manage in the GuildNest dashboard.', access: 'Sign in to the GuildNest website with Discord. Your manageable servers appear in the live connection panel.' },
+  { id: 'tickets-support', name: 'Tickets & support', status: 'Live', short: 'Private support conversations', description: 'Members can open private tickets. Support staff can claim, close, and reopen requests.', access: 'Use /ticket-panel and choose the category where new tickets should be created.' },
+  { id: 'community-center', name: 'Community Center', status: 'Live', short: 'Bug reports, ideas, and feedback', description: 'Collect structured bug reports, suggestions, and feedback. Members can vote on suggestions.', access: 'Use /community-panel to post the submission buttons in your server.' },
+  { id: 'server-setup', name: 'Server setup & sync', status: 'Live', short: 'Safe server setup and restoration', description: 'Create the starter GuildNest layout, preview a remodel, and safely restore missing items.', access: 'Use /setup, /sync, /remodel-preview, and /remodel-apply. Review the preview before applying changes.' },
+  { id: 'moderation', name: 'Moderation', status: 'Planned', short: 'Moderation and staff safety tools', description: 'A dedicated moderation workspace with staff workflows and clear action records.', access: 'This module is still in development and is not available yet.' },
+  { id: 'applications', name: 'Applications', status: 'Planned', short: 'Forms and recruitment workflows', description: 'Create application forms, review submissions, and manage staff recruitment.', access: 'This module is still in development and is not available yet.' },
+  { id: 'activity-logs', name: 'Activity & logs', status: 'Planned', short: 'Central server and staff activity', description: 'A searchable timeline of important server events and staff activity.', access: 'This module is still in development and is not available yet.' },
+] as const;
+
+const moduleMenu = () => new StringSelectMenuBuilder()
+  .setCustomId('guildnest:module:select')
+  .setPlaceholder('Choose a module to view details')
+  .addOptions(moduleCatalog.map((module) => ({
+    label: module.name,
+    value: module.id,
+    description: `${module.status} · ${module.short}`.slice(0, 100),
+  })));
+
+const moduleOverviewEmbed = () => new EmbedBuilder()
+  .setColor(0xFF8A3D)
+  .setTitle('GuildNest Module Library')
+  .setDescription('Choose a module below to view its features and how to access it.')
+  .addFields(moduleCatalog.map((module) => ({
+    name: `${module.status === 'Live' ? '🟢' : '🟡'} ${module.name}`,
+    value: module.short,
+    inline: true,
+  })))
+  .setFooter({ text: 'GuildNest · Module availability changes with verified releases' });
+
+const moduleDetailEmbed = (moduleId: string) => {
+  const module = moduleCatalog.find((item) => item.id === moduleId);
+  if (!module) return moduleOverviewEmbed();
+  return new EmbedBuilder()
+    .setColor(module.status === 'Live' ? 0x57F287 : 0xF1C40F)
+    .setTitle(module.name)
+    .setDescription(module.description)
+    .addFields(
+      { name: 'Availability', value: module.status, inline: true },
+      { name: 'How to access', value: module.access, inline: false },
+    )
+    .setFooter({ text: 'GuildNest · Select another module below to continue' });
+};
 
 const communityPanel = () => new EmbedBuilder()
   .setColor(0x5865F2)
@@ -220,7 +265,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (interaction.commandName === 'module') {
         await interaction.reply({
-          content: `**GuildNest Modules**\n\n🟢 **Core commands** — online\n🟢 **Support tickets** — panel, private channels, claim, close, and reopen\n🟢 **Community Center** — bug reports, suggestions, feedback forms, and suggestion voting\n🟢 **Server setup** — creates starter categories, channels, roles, and support panel\n🟢 **Private Staff Center** — staff channels, meeting room, and private log channels provisioned\n🟡 **Applications, moderation automation, and dashboard controls** — still being built`,
+          embeds: [moduleOverviewEmbed()],
+          components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(moduleMenu())],
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -764,6 +810,14 @@ Note: log channels are provisioned; automated moderation/message event logging a
         await interaction.editReply('✅ Support ticket panel posted in this channel.');
         return;
       }
+    }
+
+    if (interaction.isStringSelectMenu() && interaction.customId === 'guildnest:module:select') {
+      await interaction.update({
+        embeds: [moduleDetailEmbed(interaction.values[0])],
+        components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(moduleMenu())],
+      });
+      return;
     }
 
     if (interaction.isButton() && [

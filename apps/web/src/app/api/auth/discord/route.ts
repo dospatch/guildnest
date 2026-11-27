@@ -1,10 +1,10 @@
 import { randomBytes } from 'node:crypto';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { STATE_COOKIE } from '@/lib/discord-session';
 
 export const runtime = 'nodejs';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const clientId = process.env.DISCORD_CLIENT_ID;
   const redirectUri = process.env.DISCORD_REDIRECT_URI;
   if (!clientId || !redirectUri) {
@@ -12,6 +12,19 @@ export async function GET() {
       { error: 'Discord OAuth is not configured. Add DISCORD_CLIENT_ID and DISCORD_REDIRECT_URI in the deployment environment.' },
       { status: 503 },
     );
+  }
+
+  // Keep the OAuth state cookie and callback on the same hostname. Preview deployments
+  // can have several aliases; redirect to the configured callback host before
+  // creating state so the browser sends the cookie back to the correct origin.
+  let callbackUrl: URL;
+  try {
+    callbackUrl = new URL(redirectUri);
+  } catch {
+    return NextResponse.json({ error: 'Discord OAuth redirect URL is invalid.' }, { status: 503 });
+  }
+  if (request.nextUrl.origin !== callbackUrl.origin) {
+    return NextResponse.redirect(new URL('/api/auth/discord', callbackUrl), 307);
   }
 
   const state = randomBytes(24).toString('hex');

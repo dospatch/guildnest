@@ -159,6 +159,11 @@ const communityModal = (kind: 'report' | 'bug' | 'suggestion' | 'feedback' | 'su
     );
 };
 
+const guildNestStaffRoleNames = new Set([
+  'owner', 'management', 'manager', 'admin', 'administrator', 'moderator',
+  'developer', 'developer team', 'guildnest developer', 'guildnest moderator', 'guildnest staff', 'support team',
+]);
+
 const findSubmissionChannel = (
   guild: import('discord.js').Guild,
   configuredId: string | undefined,
@@ -173,6 +178,28 @@ const findSubmissionChannel = (
   );
 };
 
+const isPrivateStaffChannel = (
+  guild: import('discord.js').Guild,
+  channel: import('discord.js').TextChannel,
+): boolean => {
+  if (channel.permissionsFor(guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel)) return false;
+  for (const role of guild.roles.cache.values()) {
+    if (
+      role.id === guild.roles.everyone.id ||
+      guildNestStaffRoleNames.has(role.name.toLowerCase()) ||
+      role.permissions.has(PermissionFlagsBits.Administrator)
+    ) continue;
+    if (channel.permissionsFor(role)?.has(PermissionFlagsBits.ViewChannel)) return false;
+  }
+  for (const overwrite of channel.permissionOverwrites.cache.values()) {
+    if (overwrite.type !== 1 || !overwrite.allow.has(PermissionFlagsBits.ViewChannel) || overwrite.id === guild.members.me?.id) continue;
+    const member = guild.members.cache.get(overwrite.id);
+    const isStaffMember = member?.roles.cache.some((role) => guildNestStaffRoleNames.has(role.name.toLowerCase())) ?? false;
+    if (!isStaffMember) return false;
+  }
+  return true;
+};
+
 const botMemberHasPermission = (guild: import('discord.js').Guild, permission: bigint) =>
   Boolean(guild.members.me?.permissions.has(permission));
 
@@ -182,12 +209,8 @@ const ensurePrivateStaffSubmissionChannels = async (guild: import('discord.js').
     throw new Error('NestMate needs Manage Channels to prepare private staff submission channels.');
   }
 
-  const staffRoleNames = new Set([
-    'owner', 'management', 'manager', 'admin', 'administrator', 'moderator',
-    'developer', 'developer team', 'guildnest developer', 'guildnest moderator', 'guildnest staff', 'support team',
-  ]);
   const staffRoles = guild.roles.cache.filter((role) =>
-    staffRoleNames.has(role.name.toLowerCase()) &&
+    guildNestStaffRoleNames.has(role.name.toLowerCase()) &&
     !role.managed &&
     role.position < botMember.roles.highest.position,
   );
@@ -203,8 +226,19 @@ const ensurePrivateStaffSubmissionChannels = async (guild: import('discord.js').
     });
   }
 
-  // Apply targeted overwrites instead of replacing the category's full overwrite
-  // list, so existing staff access and custom permissions are preserved.
+  const removeNonStaffViewAllows = async (channel: import('discord.js').CategoryChannel | import('discord.js').TextChannel) => {
+    for (const overwrite of channel.permissionOverwrites.cache.values()) {
+      if (overwrite.id === guild.roles.everyone.id || overwrite.id === botMember.id || staffRoles.has(overwrite.id)) continue;
+      if (overwrite.type === 1) {
+        const member = guild.members.cache.get(overwrite.id);
+        if (member?.roles.cache.some((role) => staffRoles.has(role.id))) continue;
+      }
+      if (overwrite.allow.has(PermissionFlagsBits.ViewChannel)) {
+        await channel.permissionOverwrites.edit(overwrite.id, { ViewChannel: false }, { reason: 'Remove nonstaff visibility from private GuildNest staff area' });
+      }
+    }
+  };
+  await removeNonStaffViewAllows(category);
   await category.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, { reason: 'Keep GuildNest staff area private' });
   for (const role of staffRoles.values()) {
     await category.permissionOverwrites.edit(role.id, {
@@ -234,6 +268,7 @@ const ensurePrivateStaffSubmissionChannels = async (guild: import('discord.js').
         reason: 'Create private GuildNest submission destination',
       });
     }
+    await removeNonStaffViewAllows(channel);
     await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, { reason: 'Keep private GuildNest submissions staff-only' });
     for (const role of staffRoles.values()) {
       await channel.permissionOverwrites.edit(role.id, {
@@ -427,19 +462,33 @@ const publishWelcomeLanding = async (guild: import('discord.js').Guild) => {
   }
 };
 
+const assignCommunityMemberRole = async (member: import('discord.js').GuildMember) => {
+  if (member.pending) return;
+  const role = member.guild.roles.cache.find((item) => item.name.toLowerCase() === 'community member');
+  const botMember = member.guild.members.me;
+  if (role && botMember?.permissions.has(PermissionFlagsBits.ManageRoles) && role.position < botMember.roles.highest.position) {
+    await member.roles.add(role, 'GuildNest automatic new-member role after membership screening');
+  } else {
+    console.warn('Could not assign Community Member in ' + member.guild.name + '; verify the role, Manage Roles permission, and role hierarchy.');
+  }
+};
+
 client.on(Events.GuildMemberAdd, async (member) => {
   try {
-    const role = member.guild.roles.cache.find((item) => item.name.toLowerCase() === 'community member');
-    const botMember = member.guild.members.me;
-    if (role && botMember?.permissions.has(PermissionFlagsBits.ManageRoles) && role.position < botMember.roles.highest.position) {
-      await member.roles.add(role, 'GuildNest automatic new-member role');
-    } else {
-      console.warn('Could not assign Community Member in ' + member.guild.name + '; verify the role, Manage Roles permission, and role hierarchy.');
-    }
+    if (!member.pending) await assignCommunityMemberRole(member);
     const channel = findWelcomeChannel(member.guild);
     if (channel) await channel.send({ content: '👋 Welcome <@' + member.id + '>!', embeds: [guildNestWelcomeEmbed(member, member.guild)] });
     else console.warn('Could not send GuildNest join welcome: no #welcome channel in ' + member.guild.name);
   } catch (error) { console.error('GuildNest join automation failed for ' + member.user.tag + ':', error); }
+});
+
+client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
+  if (!oldMember.pending || newMember.pending) return;
+  try {
+    await assignCommunityMemberRole(newMember);
+  } catch (error) {
+    console.error('GuildNest post-screening role assignment failed for ' + newMember.user.tag + ':', error);
+  }
 });
 
 client.once(Events.ClientReady, (readyClient) => {
@@ -781,8 +830,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
 
         const staffCategory = categories.get('08 — STAFF HEADQUARTERS');
-        const staffRoleNames = ['owner', 'management', 'manager', 'admin', 'administrator', 'moderator', 'developer', 'developer team', 'guildnest developer', 'guildnest moderator', 'guildnest staff', 'support team'];
-        const staffRoles = guild.roles.cache.filter((role) => staffRoleNames.includes(role.name.toLowerCase()));
+        const staffRoles = guild.roles.cache.filter((role) => guildNestStaffRoleNames.has(role.name.toLowerCase()));
+        if (staffCategory) {
+          for (const overwrite of staffCategory.permissionOverwrites.cache.values()) {
+            if (overwrite.id === guild.roles.everyone.id || overwrite.id === guild.members.me?.id || staffRoles.has(overwrite.id)) continue;
+            if (overwrite.type === 1) {
+              const member = guild.members.cache.get(overwrite.id);
+              if (member?.roles.cache.some((role) => staffRoles.has(role.id))) continue;
+            }
+            if (overwrite.allow.has(PermissionFlagsBits.ViewChannel)) {
+              await staffCategory.permissionOverwrites.edit(overwrite.id, { ViewChannel: false }, { reason: 'Remove nonstaff visibility from private GuildNest staff category' });
+            }
+          }
+          await staffCategory.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, { reason: 'Secure GuildNest staff category' });
+        }
         const staffAllow = [
           PermissionFlagsBits.ViewChannel,
           PermissionFlagsBits.SendMessages,
@@ -797,6 +858,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
           // Avoid a redundant Discord API overwrite write when @everyone is
           // already explicitly denied. Existing channel-specific overwrites are
           // preserved, and Discord can reject unnecessary writes with Missing Access.
+          for (const overwrite of channel.permissionOverwrites.cache.values()) {
+            if (overwrite.id === guild.roles.everyone.id || overwrite.id === guild.members.me?.id || staffRoles.has(overwrite.id)) continue;
+            if (overwrite.type === 1) {
+              const member = guild.members.cache.get(overwrite.id);
+              if (member?.roles.cache.some((role) => staffRoles.has(role.id))) continue;
+            }
+            if (overwrite.allow.has(PermissionFlagsBits.ViewChannel)) {
+              await channel.permissionOverwrites.edit(overwrite.id, { ViewChannel: false }, { reason: 'Remove nonstaff visibility from private GuildNest staff channel' });
+            }
+          }
           const everyoneOverwrite = channel.permissionOverwrites.cache.get(guild.roles.everyone.id);
           if (!everyoneOverwrite?.deny.has(PermissionFlagsBits.ViewChannel)) {
             try {
@@ -908,11 +979,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const existingStaffCategory = guild.channels.cache.find((channel): channel is import('discord.js').CategoryChannel => channel.type === ChannelType.GuildCategory && channel.name.toLowerCase() === 'staff');
         const staffCategory = existingStaffCategory ?? await guild.channels.create({ name: 'STAFF', type: ChannelType.GuildCategory, permissionOverwrites: overwrites, reason: 'Create private GuildNest Staff Center' });
         if (existingStaffCategory) {
-          // Preserve custom access already configured on the existing category.
-          await existingStaffCategory.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, { reason: 'Secure GuildNest Staff Center' });
-          await existingStaffCategory.permissionOverwrites.edit(moderatorRole.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, Connect: true, Speak: true }, { reason: 'Grant GuildNest Moderator access' });
-          await existingStaffCategory.permissionOverwrites.edit(supportRole.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, Connect: true, Speak: true }, { reason: 'Grant Support Team access' });
-          if (botMember) await existingStaffCategory.permissionOverwrites.edit(botMember.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, ManageChannels: true, ManageMessages: true, EmbedLinks: true, AttachFiles: true, Connect: true, Speak: true }, { reason: 'Allow NestMate to manage Staff Center' });
+          // Replace the existing category ACL with the explicitly staff-only set.
+          // This removes retained ordinary-role allows that would override @everyone deny.
+          await existingStaffCategory.permissionOverwrites.set(overwrites, 'Secure GuildNest Staff Center and remove nonstaff visibility');
         }
 
         const created: string[] = [];
@@ -1243,7 +1312,10 @@ Note: log channels are provisioned; automated moderation/message event logging a
         return;
       }
       const destination = findNamedTextChannel(guild, undefined, ['introductions', 'about-me', 'introductions-and-profiles']);
-      if (!destination) {
+      const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+      if (!destination || !member ||
+          !destination.permissionsFor(member)?.has(PermissionFlagsBits.ViewChannel) ||
+          !destination.permissionsFor(member)?.has(PermissionFlagsBits.SendMessages)) {
         await interaction.reply({ content: 'I could not find #introductions. Please ask a server admin to create it.', flags: MessageFlags.Ephemeral });
         return;
       }
@@ -1303,8 +1375,8 @@ Note: log channels are provisioned; automated moderation/message event logging a
         support: { id: process.env.SUPPORT_REQUESTS_CHANNEL_ID, names: ['staff-support'], label: 'Private Support Request', color: 0x3498DB },
       }[kind];
       const destination = findSubmissionChannel(guild, config.id, config.names);
-      if (destination && (kind === 'report' || kind === 'support') && destination.permissionsFor(guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel)) {
-        await interaction.reply({ content: 'Your submission was not sent because the configured destination is visible to everyone. Please ask an administrator to make the destination staff-only and run /community-panel again.', flags: MessageFlags.Ephemeral });
+      if (destination && (kind === 'report' || kind === 'support') && !isPrivateStaffChannel(guild, destination)) {
+        await interaction.reply({ content: 'Your submission was not sent because the destination is not verified as staff-only. Please remove nonstaff View Channel access from the channel and its category, then try again.', flags: MessageFlags.Ephemeral });
         return;
       }
       if (!destination) {

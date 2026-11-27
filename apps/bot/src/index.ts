@@ -205,17 +205,17 @@ const ensurePrivateStaffSubmissionChannels = async (guild: import('discord.js').
 
   // Apply targeted overwrites instead of replacing the category's full overwrite
   // list, so existing staff access and custom permissions are preserved.
-  await category.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, 'Keep GuildNest staff area private');
+  await category.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, { reason: 'Keep GuildNest staff area private' });
   for (const role of staffRoles.values()) {
     await category.permissionOverwrites.edit(role.id, {
       ViewChannel: true, SendMessages: true, ReadMessageHistory: true,
       EmbedLinks: true, AttachFiles: true,
-    }, 'Grant existing staff role access to GuildNest staff submissions');
+    }, { reason: 'Grant existing staff role access to GuildNest staff submissions' });
   }
   await category.permissionOverwrites.edit(botMember.id, {
     ViewChannel: true, SendMessages: true, ReadMessageHistory: true,
     ManageChannels: true, EmbedLinks: true, AttachFiles: true,
-  }, 'Allow NestMate to route private GuildNest submissions');
+  }, { reason: 'Allow NestMate to route private GuildNest submissions' });
 
   const destinations: import('discord.js').TextChannel[] = [];
   for (const [name, topic] of [
@@ -234,17 +234,17 @@ const ensurePrivateStaffSubmissionChannels = async (guild: import('discord.js').
         reason: 'Create private GuildNest submission destination',
       });
     }
-    await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, 'Keep private GuildNest submissions staff-only');
+    await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, { reason: 'Keep private GuildNest submissions staff-only' });
     for (const role of staffRoles.values()) {
       await channel.permissionOverwrites.edit(role.id, {
         ViewChannel: true, SendMessages: true, ReadMessageHistory: true,
         EmbedLinks: true, AttachFiles: true,
-      }, 'Grant existing staff role access to private GuildNest submissions');
+      }, { reason: 'Grant existing staff role access to private GuildNest submissions' });
     }
     await channel.permissionOverwrites.edit(botMember.id, {
       ViewChannel: true, SendMessages: true, ReadMessageHistory: true,
       ManageChannels: true, EmbedLinks: true, AttachFiles: true,
-    }, 'Allow NestMate to deliver private GuildNest submissions');
+    }, { reason: 'Allow NestMate to deliver private GuildNest submissions' });
     destinations.push(channel);
   }
   return destinations;
@@ -909,10 +909,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const staffCategory = existingStaffCategory ?? await guild.channels.create({ name: 'STAFF', type: ChannelType.GuildCategory, permissionOverwrites: overwrites, reason: 'Create private GuildNest Staff Center' });
         if (existingStaffCategory) {
           // Preserve custom access already configured on the existing category.
-          await existingStaffCategory.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, 'Secure GuildNest Staff Center');
-          await existingStaffCategory.permissionOverwrites.edit(moderatorRole.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, Connect: true, Speak: true }, 'Grant GuildNest Moderator access');
-          await existingStaffCategory.permissionOverwrites.edit(supportRole.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, Connect: true, Speak: true }, 'Grant Support Team access');
-          if (botMember) await existingStaffCategory.permissionOverwrites.edit(botMember.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, ManageChannels: true, ManageMessages: true, EmbedLinks: true, AttachFiles: true, Connect: true, Speak: true }, 'Allow NestMate to manage Staff Center');
+          await existingStaffCategory.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }, { reason: 'Secure GuildNest Staff Center' });
+          await existingStaffCategory.permissionOverwrites.edit(moderatorRole.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, Connect: true, Speak: true }, { reason: 'Grant GuildNest Moderator access' });
+          await existingStaffCategory.permissionOverwrites.edit(supportRole.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, Connect: true, Speak: true }, { reason: 'Grant Support Team access' });
+          if (botMember) await existingStaffCategory.permissionOverwrites.edit(botMember.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, ManageChannels: true, ManageMessages: true, EmbedLinks: true, AttachFiles: true, Connect: true, Speak: true }, { reason: 'Allow NestMate to manage Staff Center' });
         }
 
         const created: string[] = [];

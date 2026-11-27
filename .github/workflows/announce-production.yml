@@ -232,7 +232,12 @@ jobs:
           # GitHub's special workflow-file permission restriction on tag updates.
           git checkout --orphan "$state_branch"
           git rm -rf . >/dev/null 2>&1 || true
+          # Vercel validates its configured apps/web Root Directory before it
+          # evaluates the ignored-build command. Keep a harmless placeholder so
+          # marker-only commits can reach that skip command instead of failing.
+          mkdir -p apps/web
+          touch apps/web/.gitkeep
           printf '%s\n' "$TARGET_SHA" > "$state_file"
-          git add "$state_file"
+          git add "$state_file" apps/web/.gitkeep
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Update GuildNest changelog marker"
           git push origin "HEAD:refs/heads/$state_branch" --force

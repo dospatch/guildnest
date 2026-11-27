@@ -57,6 +57,7 @@ const getRoles = (env: Env, guild: string) => discord(env, "GET", "/guilds/" + g
 const findChannel = (list: Payload[], names: string[], id?: string) => list.find((c) => c.type === 0 && id && c.id === id) ?? list.find((c) => c.type === 0 && names.includes(String(c.name).toLowerCase()));
 const send = (env: Env, channel: string, data: Payload) => discord(env, "POST", "/channels/" + channel + "/messages", data);
 const hasPermission = (value: string | undefined, bit: bigint) => Boolean(value && (BigInt(value) & bit) === bit);
+const isSnowflake = (value: unknown): value is string => typeof value === "string" && /^\d{17,20}$/.test(value);
 const option = (i: Payload, name: string) => (i.data.options ?? []).find((x: Payload) => x.name === name);
 const optionValue = (i: Payload, name: string) => String(option(i, name)?.value ?? "").trim();
 async function runCommand(env: Env, i: Payload, ctx: ExecutionContext): Promise<Response> {
@@ -125,31 +126,43 @@ async function runCommand(env: Env, i: Payload, ctx: ExecutionContext): Promise<
     await role("GuildNest Updates", 0xf1c40f);
 
     // Private staff-only areas: deny @everyone, allow support/moderator roles and NestMate.
-    const view = 1024n, sendMessages = 2048n, readHistory = 65536n, embedLinks = 16384n, attachFiles = 32768n, manageMessages = 8192n;
-    const staffAccess = String(view | sendMessages | readHistory | embedLinks | attachFiles | manageMessages);
+    const view = 1024n, sendMessages = 2048n, readHistory = 65536n, embedLinks = 16384n, attachFiles = 32768n, manageMessages = 8192n, connect = 1048576n, speak = 2097152n;
+    const staffAccess = String(view | sendMessages | readHistory | embedLinks | attachFiles | manageMessages | connect | speak);
     const privateOverwrites = [
       { id: guild, type: 0, deny: String(view), allow: "0" },
       { id: moderatorRole.id, type: 0, allow: staffAccess, deny: "0" },
       { id: supportRole.id, type: 0, allow: staffAccess, deny: "0" },
-      { id: env.DISCORD_APPLICATION_ID, type: 1, allow: String(view | sendMessages | readHistory | embedLinks | attachFiles), deny: "0" }
+      { id: env.DISCORD_APPLICATION_ID, type: 1, allow: String(view | sendMessages | readHistory | embedLinks | attachFiles | manageMessages | connect | speak), deny: "0" }
     ];
     const privateCategory = async (n: string) => {
       const old = list.find((c) => c.type === 4 && c.name === n);
-      if (old) { skipped.push("category: " + n); return old.id; }
+      if (old) {
+        await discord(env, "PATCH", "/channels/" + old.id, { permission_overwrites: privateOverwrites, reason: "Secure existing GuildNest private staff category" });
+        skipped.push("category: " + n + " (secured)");
+        return old.id;
+      }
       const item = await discord(env, "POST", "/guilds/" + guild + "/channels", { name: n, type: 4, permission_overwrites: privateOverwrites, reason: "GuildNest private staff area setup" });
       list.push(item); made.push("category: " + n); return item.id;
     };
     const logs = await privateCategory("LOGS"), staffArea = await privateCategory("STAFF");
     const privateTextChannel = async (n: string, parent: string, topic: string) => {
       const old = list.find((c) => c.type === 0 && c.name === n);
-      if (old) { skipped.push("#" + n); return old; }
-      const item = await discord(env, "POST", "/guilds/" + guild + "/channels", { name: n, type: 0, parent_id: parent, topic, reason: "GuildNest private staff channel setup" });
+      if (old) {
+        await discord(env, "PATCH", "/channels/" + old.id, { parent_id: parent, topic, permission_overwrites: privateOverwrites, reason: "Secure existing GuildNest private staff channel" });
+        skipped.push("#" + n + " (secured)");
+        return old;
+      }
+      const item = await discord(env, "POST", "/guilds/" + guild + "/channels", { name: n, type: 0, parent_id: parent, topic, permission_overwrites: privateOverwrites, reason: "GuildNest private staff channel setup" });
       list.push(item); made.push("#" + n); return item;
     };
     const privateVoiceChannel = async (n: string, parent: string) => {
       const old = list.find((c) => c.type === 2 && c.name === n);
-      if (old) { skipped.push("voice: " + n); return old; }
-      const item = await discord(env, "POST", "/guilds/" + guild + "/channels", { name: n, type: 2, parent_id: parent, reason: "GuildNest private staff voice setup" });
+      if (old) {
+        await discord(env, "PATCH", "/channels/" + old.id, { parent_id: parent, permission_overwrites: privateOverwrites, reason: "Secure existing GuildNest private staff voice channel" });
+        skipped.push("voice: " + n + " (secured)");
+        return old;
+      }
+      const item = await discord(env, "POST", "/guilds/" + guild + "/channels", { name: n, type: 2, parent_id: parent, permission_overwrites: privateOverwrites, reason: "GuildNest private staff voice setup" });
       list.push(item); made.push("voice: " + n); return item;
     };
     await privateTextChannel("ticket-logs", logs, "Private ticket events and future ticket transcripts.");
@@ -265,8 +278,13 @@ async function runComponent(env: Env, i: Payload, ctx: ExecutionContext): Promis
     if (id.startsWith("guildnest:ticket:create")) {
       const [list, roleList] = await Promise.all([getChannels(env, guild), getRoles(env, guild)]);
       const userId = i.member.user.id, username = i.member.user.username ?? "member";
-      const existing = list.find((c) => c.type === 0 && c.topic === "guildnest-ticket:" + userId + ":open");
+      if (!isSnowflake(userId)) return "I could not verify your Discord member ID.";
+      const allTickets = list.filter((c) => c.type === 0 && /^guildnest-ticket:\d{17,20}:(open|closed)$/.test(String(c.topic ?? "")));
+      const userTickets = allTickets.filter((c) => String(c.topic).startsWith("guildnest-ticket:" + userId + ":"));
+      const existing = userTickets.find((c) => c.topic === "guildnest-ticket:" + userId + ":open");
       if (existing) return "You already have an open ticket: <#" + existing.id + ">.";
+      if (userTickets.length >= 5) return "You have reached the limit of 5 retained tickets. Please ask staff to archive or delete older closed tickets before opening another.";
+      if (allTickets.length >= 100) return "The server ticket archive is at capacity. Please contact staff for help.";
       const staff = env.TICKET_STAFF_ROLE_ID ? roleList.find((r) => r.id === env.TICKET_STAFF_ROLE_ID) : roleList.find((r) => r.name.toLowerCase() === "support team");
       const requestedCategory = id.split(":")[3];
       const parent = list.find((c) => c.id === requestedCategory && c.type === 4) ?? list.find((c) => c.id === env.TICKET_CATEGORY_ID && c.type === 4) ?? list.find((c) => c.type === 4 && c.name.toLowerCase() === "support");
@@ -287,13 +305,16 @@ async function runComponent(env: Env, i: Payload, ctx: ExecutionContext): Promis
         embeds: [embed("Support Ticket", "Use Claim ticket when a staff member starts helping. Use Close ticket when the issue is resolved.", 0x5865f2, [{ name: "Opened by", value: "<@" + userId + ">", inline: true }])],
         components: ticketControls()
       });
-      if (env.TICKET_LOG_CHANNEL_ID) await send(env, env.TICKET_LOG_CHANNEL_ID, { embeds: [embed("🎫 Ticket Opened", "Ticket <#" + ticket.id + "> opened by <@" + userId + ">.", 0x5865f2)] });
+      const ticketLogChannel = env.TICKET_LOG_CHANNEL_ID ? list.find((c) => c.id === env.TICKET_LOG_CHANNEL_ID && c.type === 0) : undefined;
+      if (ticketLogChannel) await send(env, ticketLogChannel.id, { embeds: [embed("🎫 Ticket Opened", "Ticket <#" + ticket.id + "> opened by <@" + userId + ">.", 0x5865f2)] });
       return "Your private ticket is ready: <#" + ticket.id + ">.";
     }
+    if (!isSnowflake(channelId)) return "This ticket channel ID is invalid.";
     const channel = await discord(env, "GET", "/channels/" + channelId) as Payload;
     if (!String(channel.topic ?? "").startsWith("guildnest-ticket:")) return "This button only works inside a GuildNest ticket channel.";
     const parts = String(channel.topic).split(":"), ownerId = parts[1], state = parts[2];
-    const roleList = await getRoles(env, guild);
+    if (parts.length !== 3 || !isSnowflake(ownerId) || !["open", "closed"].includes(state)) return "Ticket metadata is invalid. Please ask staff to recreate this ticket.";
+    const [roleList, guildChannels] = await Promise.all([getRoles(env, guild), getChannels(env, guild)]);
     const staff = env.TICKET_STAFF_ROLE_ID ? roleList.find((r) => r.id === env.TICKET_STAFF_ROLE_ID) : roleList.find((r) => r.name.toLowerCase() === "support team");
     const isStaff = hasPermission(i.member?.permissions, 16n) || hasPermission(i.member?.permissions, 32n) || Boolean(staff && (i.member?.roles ?? []).includes(staff.id));
     if (id.endsWith(":claim")) {
@@ -318,7 +339,8 @@ async function runComponent(env: Env, i: Payload, ctx: ExecutionContext): Promis
       await discord(env, "PUT", "/channels/" + channelId + "/permissions/" + ownerId, { type: 1, allow: String(1024n | 65536n), deny: "2048" });
       await send(env, channelId, { content: "🔒 Ticket closed by <@" + i.member.user.id + ">. Staff can reopen it using the button below." });
       await discord(env, "PATCH", "/channels/" + channelId + "/messages/" + i.message.id, { components: ticketControls(false, true) });
-      if (env.TICKET_LOG_CHANNEL_ID) await send(env, env.TICKET_LOG_CHANNEL_ID, { embeds: [embed("🔒 Ticket Closed", "Ticket <#" + channelId + "> was closed by <@" + i.member.user.id + ">.", 0xed4245)] });
+      const ticketLogChannel = env.TICKET_LOG_CHANNEL_ID ? guildChannels.find((c) => c.id === env.TICKET_LOG_CHANNEL_ID && c.type === 0) : undefined;
+      if (ticketLogChannel) await send(env, ticketLogChannel.id, { embeds: [embed("🔒 Ticket Closed", "Ticket <#" + channelId + "> was closed by <@" + i.member.user.id + ">.", 0xed4245)] });
       return "Ticket closed.";
     }
     return "Unknown ticket action.";

@@ -44,16 +44,34 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          if [[ -z "$DEPLOYMENT_SHA" ]]; then
+            echo "Production deployment did not include a commit SHA; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           echo "sha=$DEPLOYMENT_SHA" >> "$GITHUB_OUTPUT"
           echo "mode=incremental" >> "$GITHUB_OUTPUT"
 
-      - name: Check out complete commit history
+      - name: Check out trusted main branch
         if: steps.target.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.target.outputs.sha }}
+          ref: main
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate deployment commit belongs to main
+        if: steps.target.outputs.skip != 'true'
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          git fetch origin main --tags
+          git cat-file -e "$TARGET_SHA^{commit}"
+          if ! git merge-base --is-ancestor "$TARGET_SHA" origin/main; then
+            echo "::error::Deployment commit is not reachable from trusted main; refusing to publish a changelog."
+            exit 1
+          fi
 
       - name: Publish changelog to GuildNest #updates
         if: steps.target.outputs.skip != 'true'
@@ -100,7 +118,7 @@ jobs:
             exit 0
           fi
 
-          python3 - <<'PY'
+          python3 -I - <<'PY'
           import json, os, time, urllib.request, urllib.error
           webhook = os.environ["DISCORD_WEBHOOK"]
           role_id = os.environ.get("CHANGELOG_ROLE_ID", "").strip()
